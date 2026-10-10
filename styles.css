@@ -1,0 +1,65 @@
+/* Styles for Footnotes in Callouts and Tables. Obsidian loads this file while the plugin is enabled. */
+.footnote-live-ref {
+	font-size: 0.75em;
+	line-height: 0;
+	vertical-align: super;
+	user-select: none;
+}
+
+.footnote-live-link {
+	color: var(--link-color);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.footnote-live-link:hover {
+	color: var(--link-color-hover);
+	text-decoration: underline;
+}
+
+.footnote-live-pro .footnote-live-link.is-missing {
+	color: var(--text-error);
+	border-bottom: 1px dashed var(--text-error);
+	text-decoration: none;
+}
+
+.footnote-live-popover {
+	position: fixed;
+	left: var(--footnote-live-left, 0);
+	top: var(--footnote-live-top, 0);
+	z-index: var(--layer-popover);
+	max-width: 360px;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	box-shadow: var(--shadow-s);
+	font-size: var(--font-ui-small);
+	opacity: 0;
+	pointer-events: none;
+}
+
+.footnote-live-popover.is-shown {
+	opacity: 1;
+}
+
+.footnote-live-popover p {
+	margin: 0;
+}
+
+.footnote-live-panel-title {
+	white-space: normal;
+}
+
+.footnote-live-panel-meta {
+	color: var(--text-muted);
+}
+
+.footnote-live-panel-item.is-missing .footnote-live-panel-meta,
+.footnote-live-panel-item.is-unused .footnote-live-panel-meta {
+	color: var(--text-error);
+}
+
+.footnote-live-flash {
+	background-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+}

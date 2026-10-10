@@ -1,0 +1,80 @@
+[
+	{
+		"feature": "without-plugin",
+		"caption": "Without the plugin, Live Preview shows the reference in a callout and in a table cell as plain text: no number, no link.",
+		"note": "Field notes.md",
+		"eval": "(async () => { await app.plugins.disablePlugin('callout-table-footnotes'); app.workspace.getMostRecentLeaf().rebuildView(); await new Promise((r) => setTimeout(r, 1200)); return 'ok'; })()",
+		"after": "(async () => { await app.plugins.enablePlugin('callout-table-footnotes'); await new Promise((r) => setTimeout(r, 300)); app.workspace.getMostRecentLeaf().rebuildView(); await new Promise((r) => setTimeout(r, 1200)); return 'ok'; })()",
+		"wait": 600
+	},
+	{
+		"feature": "callout",
+		"caption": "With the plugin, each reference in a callout is a numbered link.",
+		"note": "Field notes.md",
+		"wait": 900,
+		"zoom": 1.35
+	},
+	{
+		"feature": "table",
+		"caption": "References in table cells are links too, also in the header row.",
+		"note": "Field notes.md",
+		"eval": "(async () => { document.querySelectorAll('.workspace-leaf.mod-active .cm-table-widget .footnote-live-link')[1].scrollIntoView({ block: 'center' }); await new Promise((r) => setTimeout(r, 400)); return 'ok'; })()",
+		"wait": 700,
+		"zoom": 1.35
+	},
+	{
+		"feature": "hover",
+		"caption": "Rest the pointer on a reference to read its definition.",
+		"note": "Field notes.md",
+		"eval": "(async () => { document.querySelectorAll('.workspace-leaf.mod-active .cm-callout .footnote-live-link')[0].scrollIntoView({ block: 'center' }); await new Promise((r) => setTimeout(r, 400)); document.querySelectorAll('.workspace-leaf.mod-active .cm-callout .footnote-live-link')[0].dispatchEvent(new MouseEvent('mouseenter')); await new Promise((r) => setTimeout(r, 1000)); return 'ok'; })()",
+		"after": "(async () => { document.querySelectorAll('.workspace-leaf.mod-active .cm-callout .footnote-live-link')[0].dispatchEvent(new MouseEvent('mouseleave')); return 'ok'; })()",
+		"wait": 600,
+		"zoom": 1.35
+	},
+	{
+		"feature": "footnote-jump",
+		"caption": "Click a reference: the cursor goes to its definition.",
+		"frames": [
+			{
+				"note": "Field notes.md",
+				"wait": 900,
+				"hold": 1400,
+				"zoom": 1.2
+			},
+			{
+				"eval": "(async () => { document.querySelectorAll('.workspace-leaf.mod-active .cm-table-widget .footnote-live-link')[1].scrollIntoView({ block: 'center' }); await new Promise((r) => setTimeout(r, 400)); document.querySelectorAll('.workspace-leaf.mod-active .cm-table-widget .footnote-live-link')[1].dispatchEvent(new MouseEvent('mouseenter')); await new Promise((r) => setTimeout(r, 1000)); return 'ok'; })()",
+				"wait": 300,
+				"hold": 1800,
+				"zoom": 1.2
+			},
+			{
+				"eval": "(async () => { document.querySelectorAll('.workspace-leaf.mod-active .cm-table-widget .footnote-live-link')[1].dispatchEvent(new MouseEvent('mouseleave')); document.querySelectorAll('.workspace-leaf.mod-active .cm-table-widget .footnote-live-link')[1].click(); await new Promise((r) => setTimeout(r, 450)); return 'ok'; })()",
+				"wait": 250,
+				"hold": 2000,
+				"zoom": 1.2
+			}
+		]
+	},
+	{
+		"feature": "footnote-panel",
+		"caption": "Pro: every footnote of the note in one list, with a warning for a footnote that has no definition or no reference.",
+		"note": "Review checklist.md",
+		"eval": "(async () => { app.plugins.plugins['callout-table-footnotes'].pro.opts.http = async () => ({ status: 200, json: { data: { viewer: { login: 'demo-reader' }, user: { sponsorshipForViewerAsSponsor: { isActive: true, isOneTimePayment: false, tier: { name: '$5 a month', monthlyPriceInCents: 500 } } } } } }); app.secretStorage.setSecret('callout-table-footnotes-github-token', 'gho_' + '0'.repeat(36)); await app.plugins.plugins['callout-table-footnotes'].pro.refreshNow(); await new Promise((r) => setTimeout(r, 500)); return 'ok'; })()",
+		"commands": [
+			"callout-table-footnotes:show-footnotes"
+		],
+		"after": "(async () => { document.querySelector('.prompt-input')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); app.plugins.plugins['callout-table-footnotes'].pro.signOut(); return 'ok'; })()",
+		"wait": 900
+	},
+	{
+		"feature": "warnings",
+		"caption": "Pro: a reference without a definition shows in red, and the check names every unused and missing footnote.",
+		"note": "Review checklist.md",
+		"eval": "(async () => { app.plugins.plugins['callout-table-footnotes'].pro.opts.http = async () => ({ status: 200, json: { data: { viewer: { login: 'demo-reader' }, user: { sponsorshipForViewerAsSponsor: { isActive: true, isOneTimePayment: false, tier: { name: '$5 a month', monthlyPriceInCents: 500 } } } } } }); app.secretStorage.setSecret('callout-table-footnotes-github-token', 'gho_' + '0'.repeat(36)); await app.plugins.plugins['callout-table-footnotes'].pro.refreshNow(); await new Promise((r) => setTimeout(r, 500)); return 'ok'; })()",
+		"commands": [
+			"callout-table-footnotes:check-footnotes"
+		],
+		"after": "(async () => { app.plugins.plugins['callout-table-footnotes'].pro.signOut(); return 'ok'; })()",
+		"wait": 900
+	}
+]

@@ -1,0 +1,700 @@
+{
+ "slug": "callout-table-footnotes",
+ "module": "callout-table-footnotes/src/footnotes",
+ "function": "scanFootnotes",
+ "note": "args = [note text]; expected = numbers (id to number, in order of first reference, only ids with a definition), missing (referenced, no definition), unused (defined, never referenced), refs as [id, zero based line, zero based column of \"[\", context body|callout|quote|table], defs as [id, zero based line, definition text]. References in code spans, code blocks, front matter and after a backslash do not count. Reviewed by hand against each text.",
+ "cases": [
+  {
+   "name": "one body reference",
+   "args": [
+    "A claim.[^1]\n\n[^1]: The source.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      8,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "The source."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "reference inside a callout",
+   "args": [
+    "> [!note] Title\n> Text[^a] here.\n\n[^a]: Def A.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "a": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "a",
+      1,
+      6,
+      "callout"
+     ]
+    ],
+    "defs": [
+     [
+      "a",
+      3,
+      "Def A."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "reference inside a table cell",
+   "args": [
+    "| H | I |\n| - | - |\n| x[^t] | y |\n\n[^t]: Def T.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "t": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "t",
+      2,
+      3,
+      "table"
+     ]
+    ],
+    "defs": [
+     [
+      "t",
+      4,
+      "Def T."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "reference inside a plain quote",
+   "args": [
+    "> Quoted[^q] text.\n\n[^q]: Def Q.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "q": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "q",
+      0,
+      8,
+      "quote"
+     ]
+    ],
+    "defs": [
+     [
+      "q",
+      2,
+      "Def Q."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "numbers follow the first reference, not the definitions",
+   "args": [
+    "B[^b] then A[^a] then B again[^b].\n\n[^a]: Def A.\n[^b]: Def B.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "b": 1,
+     "a": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "b",
+      0,
+      1,
+      "body"
+     ],
+     [
+      "a",
+      0,
+      12,
+      "body"
+     ],
+     [
+      "b",
+      0,
+      29,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "a",
+      2,
+      "Def A."
+     ],
+     [
+      "b",
+      3,
+      "Def B."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a reference with no definition is missing and gets no number",
+   "args": [
+    "One[^1] and two[^2].\n\n[^1]: Def one.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [
+     "2"
+    ],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      3,
+      "body"
+     ],
+     [
+      "2",
+      0,
+      15,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "Def one."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a definition with no reference is unused",
+   "args": [
+    "Text.\n\n[^x]: Never used.\n[^y]: Also never used.\n"
+   ],
+   "expected": {
+    "numbers": {},
+    "missing": [],
+    "unused": [
+     "x",
+     "y"
+    ],
+    "refs": [],
+    "defs": [
+     [
+      "x",
+      2,
+      "Never used."
+     ],
+     [
+      "y",
+      3,
+      "Also never used."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a reference in an inline code span is ignored",
+   "args": [
+    "Code `[^1]` and real[^2].\n\n[^1]: One.\n[^2]: Two.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "2": 1
+    },
+    "missing": [],
+    "unused": [
+     "1"
+    ],
+    "refs": [
+     [
+      "2",
+      0,
+      20,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "One."
+     ],
+     [
+      "2",
+      3,
+      "Two."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a reference in a fenced code block is ignored",
+   "args": [
+    "```\nlet a = b[^1];\n```\n\nReal[^2].\n\n[^2]: Two.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "2": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "2",
+      4,
+      4,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "2",
+      6,
+      "Two."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "an escaped bracket is not a reference",
+   "args": [
+    "Not a ref \\[^1] but this is[^2].\n\n[^2]: Two.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "2": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "2",
+      0,
+      27,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "2",
+      2,
+      "Two."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "front matter is skipped",
+   "args": [
+    "---\ntags: [^1]\n---\nBody[^1].\n\n[^1]: One.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      3,
+      4,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      5,
+      "One."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a definition continues on indented lines",
+   "args": [
+    "Text[^1].\n\n[^1]: First line\n    second line\n    third line\n\nNext paragraph.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      4,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      4,
+      "First line second line third line"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "ids may hold letters, digits and hyphens",
+   "args": [
+    "Text[^note-2] and[^Source_A].\n\n[^note-2]: Two.\n[^Source_A]: A.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "note-2": 1,
+     "Source_A": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "note-2",
+      0,
+      4,
+      "body"
+     ],
+     [
+      "Source_A",
+      0,
+      17,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "note-2",
+      2,
+      "Two."
+     ],
+     [
+      "Source_A",
+      3,
+      "A."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "the same id twice gives two references and one number",
+   "args": [
+    "First[^1] and second[^1].\n\n[^1]: One.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      5,
+      "body"
+     ],
+     [
+      "1",
+      0,
+      20,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "One."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a definition line is not a reference",
+   "args": [
+    "[^1]: Only a definition.\n"
+   ],
+   "expected": {
+    "numbers": {},
+    "missing": [],
+    "unused": [
+     "1"
+    ],
+    "refs": [],
+    "defs": [
+     [
+      "1",
+      0,
+      "Only a definition."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a nested callout is a callout",
+   "args": [
+    "> [!note] Outer\n> > [!tip] Inner\n> > Deep[^d] text.\n\n[^d]: Def D.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "d": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "d",
+      2,
+      8,
+      "callout"
+     ]
+    ],
+    "defs": [
+     [
+      "d",
+      4,
+      "Def D."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a list item in a callout is a callout reference",
+   "args": [
+    "> [!note] List\n> - item one[^1]\n> - item two\n\n[^1]: One.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      1,
+      12,
+      "callout"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      4,
+      "One."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "an empty note has no footnotes",
+   "args": [
+    ""
+   ],
+   "expected": {
+    "numbers": {},
+    "missing": [],
+    "unused": [],
+    "refs": [],
+    "defs": []
+   }
+  },
+  {
+   "name": "two references on one line have their columns",
+   "args": [
+    "A[^1]B[^2]C\n\n[^1]: One.\n[^2]: Two.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1,
+     "2": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      1,
+      "body"
+     ],
+     [
+      "2",
+      0,
+      6,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "One."
+     ],
+     [
+      "2",
+      3,
+      "Two."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a pipe line outside a table stays body text",
+   "args": [
+    "a | b[^1] | c\n\n[^1]: One.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      5,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      2,
+      "One."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a table in the middle of a note ends at the first line without a pipe",
+   "args": [
+    "Before[^1]\n\n| A | B |\n| - | - |\n| c[^2] | d |\nAfter table[^3]\n\n[^1]: One.\n[^2]: Two.\n[^3]: Three.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1,
+     "2": 2,
+     "3": 3
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      0,
+      6,
+      "body"
+     ],
+     [
+      "2",
+      4,
+      3,
+      "table"
+     ],
+     [
+      "3",
+      5,
+      11,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      7,
+      "One."
+     ],
+     [
+      "2",
+      8,
+      "Two."
+     ],
+     [
+      "3",
+      9,
+      "Three."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "a callout ends at the first line without a quote mark",
+   "args": [
+    "> [!note] N\n> in[^1]\nout[^2]\n\n[^1]: One.\n[^2]: Two.\n"
+   ],
+   "expected": {
+    "numbers": {
+     "1": 1,
+     "2": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "1",
+      1,
+      4,
+      "callout"
+     ],
+     [
+      "2",
+      2,
+      3,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "1",
+      4,
+      "One."
+     ],
+     [
+      "2",
+      5,
+      "Two."
+     ]
+    ]
+   }
+  }
+ ]
+}
