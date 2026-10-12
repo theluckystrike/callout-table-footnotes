@@ -5,7 +5,7 @@ import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
 import { CalloutTableFootnotesSettingTab, DEFAULT_SETTINGS, normalizeSettings, type CalloutTableFootnotesSettings } from './settings';
 import { FootnotePanel } from './panel';
 import { FootnoteWidgets } from './widgets';
-import { defIdOnLine, definitionOf, describeProblems, firstRef, panelItems, scanFootnotes } from './footnotes';
+import { defIdOnLine, describeProblems, firstRef, panelItems, panelTarget, scanFootnotes } from './footnotes';
 
 const PRO_CLASS = 'footnote-live-pro';
 /** How often to ask the license state whether a check is due. It sends a request only when signed in and due (7 days). */
@@ -76,11 +76,10 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 	private showPanel(editor: Editor): void {
 		const scan = scanFootnotes(editor.getValue());
 		new FootnotePanel(this.app, panelItems(scan), (item) => {
-			const def = definitionOf(scan, item.id) ?? firstRef(scan, item.id);
-			if (!def) return;
-			const ch = 'text' in def ? `[^${item.id}]: `.length : def.ch;
-			editor.setCursor({ line: def.line, ch });
-			editor.scrollIntoView({ from: { line: def.line, ch: 0 }, to: { line: def.line, ch: 0 } }, true);
+			const target = panelTarget(scan, item.id);
+			if (!target) return;
+			editor.setCursor(target);
+			editor.scrollIntoView({ from: { line: target.line, ch: 0 }, to: { line: target.line, ch: 0 } }, true);
 			editor.focus();
 		}).open();
 	}

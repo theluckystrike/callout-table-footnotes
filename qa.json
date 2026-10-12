@@ -76,5 +76,13 @@
 		],
 		"after": "(async () => { app.plugins.plugins['callout-table-footnotes'].pro.signOut(); return 'ok'; })()",
 		"wait": 900
+	},
+	{
+		"feature": "inline-footnotes",
+		"caption": "Inline and named footnotes use one number order in callouts and table cells.",
+		"note": "Inline footnotes.md",
+		"eval": "(async () => { const labels = Array.from(document.querySelectorAll('.workspace-leaf.mod-active .footnote-live-link')).map((e) => e.textContent).join(','); if (labels !== '1,2,3,2') throw new Error('Wrong inline numbers: ' + labels); const link = document.querySelector('.workspace-leaf.mod-active .cm-callout .footnote-live-link'); link.dispatchEvent(new MouseEvent('mouseenter')); await new Promise((r) => setTimeout(r, 900)); const pop = document.querySelector('.footnote-live-popover.is-shown'); if (!pop?.textContent.includes('Each plot had the same area.')) throw new Error('Inline preview is missing'); return labels; })()",
+		"after": "app.plugins.plugins['callout-table-footnotes'].widgets.hide()",
+		"wait": 600
 	}
 ]

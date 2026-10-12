@@ -4,7 +4,7 @@
 import { Component, MarkdownRenderer, type App } from 'obsidian';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from '@codemirror/view';
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
-import { MAX_BLOCK_LINES, blockFrom, calloutSource, cellSource, definitionOf, firstRef, labelOf, locateRefs, scanFootnotes, type FootnoteScan, type Located } from './footnotes';
+import { MAX_BLOCK_LINES, blockFrom, widgetSource, definitionOf, firstRef, labelOf, locateRefs, scanFootnotes, type FootnoteScan, type Located } from './footnotes';
 import type { CalloutTableFootnotesSettings } from './settings';
 
 export const REF_CLASS = 'footnote-live-ref';
@@ -144,12 +144,23 @@ export class FootnoteWidgets {
 		}
 		const kind = isCell ? 'table' : 'callout';
 		const block = blockFrom(this.linesFrom(view, pos, kind), 0, kind);
-		const source = isCell ? this.cellSourceOf(el, block) : calloutSource(block);
-		if (!source.includes('[^')) return 0;
+		const { source, inlineIds } = widgetSource(block, view.state.doc.lineAt(pos).number - 1, isCell ? this.cellPositionOf(el) : undefined);
+		if (!source.includes('[^') && inlineIds.length === 0) return 0;
 		const body = isCell ? el : (el.querySelector<HTMLElement>('.callout-content') ?? el);
 		const located = locateRefs(textSlots(body).text, source);
-		if (!located || located.length === 0) return 0;
-		return replaceLabels(body, located, (hit) => this.makeRef(view, hit.id));
+		if (!located) return 0;
+		const native = Array.from(body.querySelectorAll<HTMLElement>('sup.footnote-ref'));
+		if (native.length !== inlineIds.length || inlineIds.some((id) => !definitionOf(this.scanOf(view), id))) return 0;
+		let done = replaceLabels(body, located, (hit) => this.makeRef(view, hit.id));
+		native.forEach((sup, i) => {
+			sup.replaceWith(this.makeRef(view, inlineIds[i] ?? ''));
+			done++;
+		});
+		// The popup replaces the local list, after every inline reference in this render has a link.
+		if (inlineIds.length && !el.querySelector('sup.footnote-ref')) {
+			for (const list of Array.from(el.querySelectorAll(':scope > section.footnotes'))) list.remove();
+		}
+		return done;
 	}
 
 	/** The lines from the one at pos to the first line that ends the block. Reads no more than the block. */
@@ -164,13 +175,13 @@ export class FootnoteWidgets {
 		return out;
 	}
 
-	private cellSourceOf(el: HTMLElement, block: string[]): string {
+	private cellPositionOf(el: HTMLElement): { row: number; col: number } {
 		const td = el.closest('td,th');
 		const tr = td?.parentElement;
 		const section = tr?.parentElement;
-		if (!td || !tr || !section) return '';
+		if (!td || !tr || !section) return { row: -1, col: -1 };
 		const row = section.tagName === 'THEAD' ? 0 : 1 + Array.from(section.children).indexOf(tr);
-		return cellSource(block, row, Array.from(tr.children).indexOf(td));
+		return { row, col: Array.from(tr.children).indexOf(td) };
 	}
 
 	/** The link that takes the place of a label. */
@@ -178,7 +189,7 @@ export class FootnoteWidgets {
 		const scan = this.scanOf(view);
 		const def = definitionOf(scan, id);
 		const sup = createEl('sup', { cls: REF_CLASS });
-		const label = this.host.getSettings().showNumbers ? labelOf(scan, id) : id;
+		const label = this.host.getSettings().showNumbers || def?.ch !== undefined ? labelOf(scan, id) : id;
 		const link = sup.createEl('a', { cls: LINK_CLASS, text: label, attr: { role: 'link', tabindex: '0', 'data-footnote-id': id, 'aria-label': def ? `Footnote ${label}` : `No definition for [^${id}]` } });
 		if (!def) link.addClass('is-missing');
 		// A press inside a table cell would start editing the cell, so the press is stopped before the click.
@@ -211,7 +222,7 @@ export class FootnoteWidgets {
 		const from = view.state.doc.lineAt(view.state.selection.main.head);
 		this.lastJump = { line: from.number - 1, ch: view.state.selection.main.head - from.from };
 		this.hide();
-		view.dispatch({ selection: { anchor: line.from + `[^${id}]: `.length }, scrollIntoView: true, effects: flashEffect.of(line.from) });
+		view.dispatch({ selection: { anchor: line.from + (def.ch !== undefined ? def.ch + 2 : `[^${id}]: `.length) }, scrollIntoView: true, effects: flashEffect.of(line.from) });
 		view.focus();
 		view.dom.win.setTimeout(() => view.dispatch({ effects: clearFlash.of(null) }), FLASH_MS);
 		return true;

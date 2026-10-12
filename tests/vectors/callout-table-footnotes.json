@@ -2,7 +2,7 @@
  "slug": "callout-table-footnotes",
  "module": "callout-table-footnotes/src/footnotes",
  "function": "scanFootnotes",
- "note": "args = [note text]; expected = numbers (id to number, in order of first reference, only ids with a definition), missing (referenced, no definition), unused (defined, never referenced), refs as [id, zero based line, zero based column of \"[\", context body|callout|quote|table], defs as [id, zero based line, definition text]. References in code spans, code blocks, front matter and after a backslash do not count. Reviewed by hand against each text.",
+ "note": "args = [note text]; expected = numbers (id to number, in order of first reference, only ids with a definition), missing (referenced, no definition), unused (defined, never referenced), refs as [id, zero based line, zero based column of \"[\", context body|callout|quote|table], defs as [id, zero based line, definition text]. References in code spans, code blocks, front matter and after a backslash do not count. Reviewed by hand against each text. Inline footnotes on one line use an id with their line and column. Inline and named footnotes share one number order.",
  "cases": [
   {
    "name": "one body reference",
@@ -692,6 +692,266 @@
       "2",
       5,
       "Two."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "one inline body footnote",
+   "args": [
+    "A^[One.]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 0:1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 0:1",
+      0,
+      1,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 0:1",
+      0,
+      "One."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "inline and named references in a callout",
+   "args": [
+    "> [!note] N\n> A^[One.] B[^n]\n\n[^n]: Named."
+   ],
+   "expected": {
+    "numbers": {
+     "inline 1:3": 1,
+     "n": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 1:3",
+      1,
+      3,
+      "callout"
+     ],
+     [
+      "n",
+      1,
+      12,
+      "callout"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 1:3",
+      1,
+      "One."
+     ],
+     [
+      "n",
+      3,
+      "Named."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "inline references in a table header and body",
+   "args": [
+    "| H^[Header.] |\n| --- |\n| A^[Body.] |"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 0:3": 1,
+     "inline 2:3": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 0:3",
+      0,
+      3,
+      "table"
+     ],
+     [
+      "inline 2:3",
+      2,
+      3,
+      "table"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 0:3",
+      0,
+      "Header."
+     ],
+     [
+      "inline 2:3",
+      2,
+      "Body."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "equal inline text stays separate",
+   "args": [
+    "A^[Same.] B^[Same.]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 0:1": 1,
+     "inline 0:11": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 0:1",
+      0,
+      1,
+      "body"
+     ],
+     [
+      "inline 0:11",
+      0,
+      11,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 0:1",
+      0,
+      "Same."
+     ],
+     [
+      "inline 0:11",
+      0,
+      "Same."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "inline Markdown link text stays intact",
+   "args": [
+    "A^[See [source](https://example.com).]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 0:1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 0:1",
+      0,
+      1,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 0:1",
+      0,
+      "See [source](https://example.com)."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "escaped and code inline footnotes do not count",
+   "args": [
+    "`^[Code.]` \\^[Escape.] ^[Real.]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 0:23": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 0:23",
+      0,
+      23,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 0:23",
+      0,
+      "Real."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "inline code in a callout is not a footnote",
+   "args": [
+    "> [!note] N\n> ```md\n> ^[Code.]\n> ```\n> A^[Real.]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 4:3": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 4:3",
+      4,
+      3,
+      "callout"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 4:3",
+      4,
+      "Real."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "inline front matter is skipped",
+   "args": [
+    "---\nkey: ^[Hidden.]\n---\nA^[Shown.]"
+   ],
+   "expected": {
+    "numbers": {
+     "inline 3:1": 1
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 3:1",
+      3,
+      1,
+      "body"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 3:1",
+      3,
+      "Shown."
      ]
     ]
    }

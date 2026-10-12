@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { replaceLabels, textSlots } from '../src/widgets';
+import { describe, expect, it, vi } from 'vitest';
+import { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
+import { App, Component } from 'obsidian';
+import { DEFAULT_SETTINGS } from '../src/settings';
+import { FootnoteWidgets, replaceLabels, textSlots } from '../src/widgets';
 import { locateRefs } from '../src/footnotes';
 
 function html(s: string): HTMLElement {
@@ -38,5 +42,68 @@ describe('replaceLabels', () => {
 		const { text, slots } = textSlots(html('ab<b>cd</b>ef'));
 		expect(text).toBe('abcdef');
 		expect(slots.map((s) => s.start)).toEqual([0, 2, 4]);
+	});
+});
+
+
+describe('inline link navigation', () => {
+	const text = 'Before.\n> [!note] Source\n> Claim^[Inline source.] and[^named].\n\n[^named]: Named source.';
+	function host(showNumbers = true) {
+		const widgets = new FootnoteWidgets({
+			app: App.createConfigured__({ files: {} }) as never,
+			component: new Component(),
+			getSettings: () => ({ ...DEFAULT_SETTINGS, showNumbers }),
+			isPro: () => false,
+		});
+		const dom = document.createElement('div');
+		Object.defineProperty(dom, 'win', { value: window });
+		const dispatch = vi.fn();
+		const focus = vi.fn();
+		const view = { state: EditorState.create({ doc: text }), dom, dispatch, focus } as unknown as EditorView;
+		return { widgets, view, dispatch, focus };
+	}
+
+	it('keeps an inline number when named labels are on', () => {
+		const { widgets, view } = host(false);
+		expect(widgets.makeRef(view, 'inline 2:7').textContent).toBe('1');
+		expect(widgets.makeRef(view, 'named').textContent).toBe('named');
+	});
+
+	it('clicks an inline link into its text without Pro', () => {
+		vi.useFakeTimers();
+		try {
+			const { widgets, view, dispatch, focus } = host();
+			const link = widgets.makeRef(view, 'inline 2:7').querySelector('a');
+			link?.click();
+			expect(dispatch.mock.calls[0]?.[0].selection).toEqual({ anchor: text.indexOf('^[Inline') + 2 });
+			expect(focus).toHaveBeenCalledOnce();
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('uses Enter for the same source jump', () => {
+		vi.useFakeTimers();
+		try {
+			const { widgets, view, dispatch } = host();
+			const link = widgets.makeRef(view, 'inline 2:7').querySelector('a');
+			link?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+			expect(dispatch.mock.calls[0]?.[0].selection).toEqual({ anchor: text.indexOf('^[Inline') + 2 });
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('stops a press on the link before the table can start a cell edit', () => {
+		const { widgets, view } = host();
+		const root = widgets.makeRef(view, 'inline 2:7');
+		const parentPress = vi.fn();
+		root.addEventListener('mousedown', parentPress);
+		const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+		root.querySelector('a')?.dispatchEvent(press);
+		expect(press.defaultPrevented).toBe(true);
+		expect(parentPress).not.toHaveBeenCalled();
 	});
 });

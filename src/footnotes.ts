@@ -14,6 +14,8 @@ export interface RefInfo {
 
 export interface DefInfo {
 	id: string;
+	/** Column of the caret for an inline footnote. */
+	ch?: number;
 	/** Zero based line of the "[^id]:" label. */
 	line: number;
 	/** Text of the definition, continuation lines joined with one space. */
@@ -49,9 +51,59 @@ const ALNUM = /[\p{L}\p{N}]/u;
 /** Longest piece of source text one scan reads after a widget start. Keeps a scan bounded. */
 export const MAX_BLOCK_LINES = 400;
 
+export interface InlineFootnote {
+	start: number;
+	end: number;
+	text: string;
+}
+
+/** An inline id has a space, so it cannot match a named footnote id. */
+export function inlineId(line: number, ch: number): string {
+	return `inline ${line}:${ch}`;
+}
+
+/** Reads inline footnotes on one line. Balanced brackets and escaped brackets stay in the text. */
+export function inlineFootnotes(line: string): InlineFootnote[] {
+	const masked = line.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
+	// One pass finds the end of each balanced bracket, so a long line with open brackets stays linear.
+	const close = new Map<number, number>();
+	const open: number[] = [];
+	for (let i = 0; i < masked.length; i++) {
+		if (masked[i] === '\\') { i++; continue; }
+		if (masked[i] === '[') open.push(i);
+		else if (masked[i] === ']') {
+			const at = open.pop();
+			if (at !== undefined) close.set(at, i + 1);
+		}
+	}
+	const out: InlineFootnote[] = [];
+	for (let i = 0; i < masked.length - 1; i++) {
+		if (masked[i] === '\\') { i++; continue; }
+		if (masked[i] !== '^' || masked[i + 1] !== '[') continue;
+		const end = close.get(i + 1);
+		if (end === undefined) continue;
+		out.push({ start: i, end, text: line.slice(i + 2, end - 1) });
+		i = end - 1;
+	}
+	return out;
+}
+
+/** The source with each inline footnote replaced by its local rendered number. */
+export function inlineLabels(line: string, first = 1): string {
+	let next = first;
+	let last = 0;
+	let out = '';
+	for (const note of inlineFootnotes(line)) {
+		out += line.slice(last, note.start) + `[${next++}]`;
+		last = note.end;
+	}
+	return out + line.slice(last);
+}
+
 /** Splits text into plain parts and footnote references. A reference inside an inline code span, or after a backslash, stays plain. */
 export function splitRefs(line: string): Part[] {
-	const masked = line.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
+	let masked = line.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
+	for (const note of inlineFootnotes(line)) masked = masked.slice(0, note.start) + ' '.repeat(note.end - note.start) + masked.slice(note.end);
 	const parts: Part[] = [];
 	let last = 0;
 	for (const m of masked.matchAll(new RegExp(`\\[\\^(${ID})\\](?!:)`, 'g'))) {
@@ -109,29 +161,36 @@ export function calloutSource(block: string[]): string {
 	return out.join('\n');
 }
 
-/** Splits one table row into cells. An escaped pipe and a pipe in a code span stay in the cell. */
-export function splitCells(row: string): string[] {
-	const cells: string[] = [];
-	let cur = '';
-	let code = false;
-	const t = row.trim();
-	for (let i = 0; i < t.length; i++) {
-		const c = t[i] ?? '';
-		if (c === '\\' && t[i + 1] === '|') {
-			cur += '|';
-			i++;
-		} else if (c === '`') {
-			code = !code;
-			cur += c;
-		} else if (c === '|' && !code) {
-			cells.push(cur);
-			cur = '';
-		} else cur += c;
+export interface SourceCell {
+	text: string;
+	raw: string;
+	ch: number;
+}
+
+/** Table cells with source columns. Escaped pipes and code spans stay in a cell. */
+export function sourceCells(row: string): SourceCell[] {
+	const cells: SourceCell[] = [];
+	const masked = row.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
+	let start = 0;
+	const add = (end: number): void => {
+		const raw = row.slice(start, end);
+		cells.push({ text: raw.trim().replace(/\\\|/g, '|'), raw: raw.trim(), ch: start + raw.length - raw.trimStart().length });
+	};
+	for (let i = 0; i < masked.length; i++) {
+		if (masked[i] === '\\') { i++; continue; }
+		if (masked[i] !== '|') continue;
+		add(i);
+		start = i + 1;
 	}
-	cells.push(cur);
-	if (t.startsWith('|')) cells.shift();
-	if (t.endsWith('|') && !t.endsWith('\\|')) cells.pop();
-	return cells.map((c) => c.trim());
+	add(row.length);
+	if (row.trimStart().startsWith('|')) cells.shift();
+	if (row.trimEnd().endsWith('|') && !row.trimEnd().endsWith('\\|')) cells.pop();
+	return cells;
+}
+
+/** Splits a table row. Escaped pipes and pipes in code stay in the cell. */
+export function splitCells(row: string): string[] {
+	return sourceCells(row).map((cell) => cell.text);
 }
 
 /** Source text of one rendered cell. row 0 is the header row, row 1 the first body row; the delimiter row is skipped. */
@@ -139,6 +198,37 @@ export function cellSource(block: string[], row: number, col: number): string {
 	const raw = block[row === 0 ? 0 : row + 1];
 	if (raw === undefined) return '';
 	return stripLine(splitCells(raw)[col] ?? '');
+}
+
+export interface WidgetSource {
+	source: string;
+	inlineIds: string[];
+}
+
+/** Source text and inline ids for one widget. Inline numbers are local to its Markdown render. */
+export function widgetSource(block: string[], startLine: number, cell?: { row: number; col: number }): WidgetSource {
+	if (cell) {
+		const row = cell.row === 0 ? 0 : cell.row + 1;
+		const part = sourceCells(block[row] ?? '')[cell.col];
+		if (!part) return { source: '', inlineIds: [] };
+		return {
+			source: stripLine(inlineLabels(part.raw).replace(/\\\|/g, '|')),
+			inlineIds: inlineFootnotes(part.raw).map((note) => inlineId(startLine + row, part.ch + note.start)),
+		};
+	}
+	let next = 1;
+	let fenced = false;
+	const inlineIds: string[] = [];
+	const rendered = block.map((raw, line) => {
+		if (FENCE.test(raw.replace(/^(?:\s*>)+ ?/, ''))) { fenced = !fenced; return raw; }
+		if (fenced) return raw;
+		const notes = inlineFootnotes(raw);
+		if (line > 0) inlineIds.push(...notes.map((note) => inlineId(startLine + line, note.start)));
+		const out = inlineLabels(raw, next);
+		next += notes.length;
+		return out;
+	});
+	return { source: calloutSource(rendered), inlineIds };
 }
 
 interface Normal {
@@ -226,7 +316,7 @@ export function scanFootnotes(text: string): FootnoteScan {
 	let fenced = false;
 	for (let i = start; i < lines.length; i++) {
 		const line = lines[i] ?? '';
-		if (FENCE.test(line)) {
+		if (FENCE.test(line.replace(/^(?:\s*>)+ ?/, ''))) {
 			fenced = !fenced;
 			continue;
 		}
@@ -239,14 +329,21 @@ export function scanFootnotes(text: string): FootnoteScan {
 			continue;
 		}
 		const context: Context = table.has(i) ? 'table' : callout.has(i) ? 'callout' : quote.has(i) ? 'quote' : 'body';
+		const lineRefs: RefInfo[] = [];
+		for (const note of inlineFootnotes(line)) {
+			const id = inlineId(i, note.start);
+			lineRefs.push({ id, line: i, ch: note.start, context });
+			defs.push({ id, line: i, ch: note.start, text: note.text });
+		}
 		let ch = 0;
 		for (const part of splitRefs(line)) {
 			if ('text' in part) ch += part.text.length;
 			else {
-				refs.push({ id: part.id, line: i, ch, context });
+				lineRefs.push({ id: part.id, line: i, ch, context });
 				ch += part.id.length + 3;
 			}
 		}
+		refs.push(...lineRefs.sort((a, b) => a.ch - b.ch));
 	}
 	return summarize(refs, defs);
 }
@@ -284,9 +381,17 @@ export function definitionOf(scan: FootnoteScan, id: string): DefInfo | null {
 	return scan.defs.find((d) => d.id === id) ?? null;
 }
 
+/** Cursor place for a panel row: the definition text, inline text, or the first reference when there is no definition. */
+export function panelTarget(scan: FootnoteScan, id: string): { line: number; ch: number } | null {
+	const def = definitionOf(scan, id);
+	if (def) return { line: def.line, ch: def.ch !== undefined ? def.ch + 2 : `[^${id}]: `.length };
+	const ref = firstRef(scan, id);
+	return ref ? { line: ref.line, ch: ref.ch } : null;
+}
+
 /** Id of the definition on a line, or null. For the Pro command that goes back to the reference. */
 export function defIdOnLine(scan: FootnoteScan, line: number): string | null {
-	return scan.defs.find((d) => d.line === line)?.id ?? null;
+	return scan.defs.find((d) => d.line === line && d.ch === undefined)?.id ?? null;
 }
 
 /** What a reference shows: its number, or the id when it has no definition. */

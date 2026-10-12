@@ -2,8 +2,6 @@
 
 Footnotes in Callouts and Tables fixes a gap in Live Preview. When you write a footnote reference inside a callout or a table cell, Obsidian shows it as a bare number or word. You cannot click it, and you cannot read the definition without scrolling. This plugin turns each of those references into a numbered link, like the footnote links that Obsidian draws in a normal paragraph. Hover over the link to read the definition. Click it to go to the definition.
 
-Three forum requests ask for this fix, with 72 votes together, and they are still open. The footnote plugins in the directory help you insert or tidy footnotes. None of them draws a reference inside a callout or a table cell.
-
 ## Features
 
 ### Numbered links in callouts
@@ -21,6 +19,12 @@ With the plugin, the same text shows a raised number that you can click. The num
 A reference in a table cell becomes a link too, in the header row and in the body rows. A click on the link does not start editing the cell. A click on the cell text still does, and the links come back when you leave the cell.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/table.png" alt="A table with raised, numbered footnote links in two columns" width="720">
+
+### Inline footnotes
+
+Write `^[text]` in a callout body or a table cell to keep the definition beside its reference in the source. The plugin shows a numbered link. Inline and named footnotes use one number order for the note. Hover over the link to read the inline text. Click it, or press Enter, to move the cursor into that text. The plugin removes the local list below a callout when its inline links are ready. The note text stays unchanged.
+
+<img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/inline-footnotes.png" alt="Inline and named footnotes in a callout and table use one number order, with the inline text shown in a popup" width="720">
 
 ### Hover preview
 
@@ -65,13 +69,13 @@ A definition can run over several lines if you indent the next lines by two spac
 
 ### How it works
 
-Live Preview draws a callout and a table as a widget, and in the widget Obsidian replaces `[^2]` with its bare label `2`. The plugin uses two public hooks: an editor extension that gives it each editor, and a Markdown post processor that tells it when a callout or a table cell has been drawn. It reads the source text of that callout or cell and finds each label by the letters and digits before it. It then swaps the label for a link. When the text before a label does not match the source, the widget stays as Obsidian drew it. The plugin does not patch Obsidian code.
+The plugin reads the source text with an editor extension and a Markdown post processor. It makes links after the widget is drawn. If the source and the widget do not match, it leaves the widget as drawn. It uses public API hooks.
 
 ## Settings
 
 | Setting | What it does |
 | --- | --- |
-| Show numbers | Shows each reference as its number. Turn it off to show the label that you typed. |
+| Show numbers | Shows each reference as its number. Turn it off to show named labels. Inline footnotes keep numbers. |
 | Hover preview | Shows the definition in a popup. |
 | Hover delay | Milliseconds to wait before the popup shows, from 0 to 2000. |
 
@@ -79,7 +83,7 @@ The settings tab also has the Pro section: sign in with GitHub, the status line 
 
 ## Pro
 
-The free version has the numbered links in callouts and tables, the hover preview and the jump to the definition. Pro adds the footnote panel, the way back from a definition to its reference, the red warning for a reference without a definition, and the check for unused and missing footnotes. To get it:
+The free version has the numbered links for named and inline footnotes in callouts and tables, the hover preview and the jump to the definition. Pro adds the footnote panel, the way back from a definition to its reference, the red warning for a reference without a definition, and the check for unused and missing footnotes. To get it:
 
 1. Sponsor [theluckystrike on GitHub Sponsors](https://github.com/sponsors/theluckystrike) with $5 a month, or $15 once. A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply.
 2. In Obsidian, open the settings of Footnotes in Callouts and Tables and select "Sign in with GitHub".
@@ -103,7 +107,7 @@ Live Preview draws it that way, and the plugin leaves it. The plugin only change
 
 ### Which footnotes does it not handle?
 
-Inline footnotes such as `^[text]`, and footnotes in embedded notes. A label that has no letter and no digit, such as `[^-]`, also stays as drawn.
+Footnotes in embedded notes, inline footnotes in callout titles or footnote definitions, and inline footnotes that cross a line break. A label that has no letter and no digit, such as `[^-]`, also stays as drawn.
 
 ### How is this different from the Footnote Shortcut plugin?
 

@@ -146,3 +146,76 @@ describe(`${pluginId} in the real app`, function () {
 		await setPro(false);
 	});
 });
+
+const INLINE_NOTE = [
+	'Inline source test^[First in the note.].',
+	'',
+	'> [!note] Inline sources',
+	'> A claim^[**Callout** source.] and a named source[^n].',
+	'',
+	'| Header^[Header source.] | Other |',
+	'| --- | --- |',
+	'| Cell^[**Cell** source.] | Named[^n] |',
+	'',
+	'[^n]: Named source.',
+	'',
+].join('\n');
+const INLINE_PATH = 'Inline footnotes.md';
+
+describe(`${pluginId} inline footnotes in the real app`, function () {
+	before(async function () {
+		await setPro(false);
+		await obsidianPage.write(INLINE_PATH, INLINE_NOTE);
+		await obsidianPage.openFile(INLINE_PATH);
+		await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.setCursor({ line: 0, ch: 0 }));
+		await waitForLinks(5);
+	});
+
+	it('uses one order for body, callout, header and cell footnotes without Pro', async function () {
+		expect(await labels('.cm-callout')).toEqual(['2', '3']);
+		expect(await labels('.cm-table-widget')).toEqual(['4', '5', '3']);
+		expect(await browser.$('.workspace-leaf.mod-active .cm-callout section.footnotes').isExisting()).toBe(false);
+	});
+
+	it('shows Markdown text when the pointer rests on an inline link', async function () {
+		await browser.execute((sel: string) => document.querySelector(sel)?.dispatchEvent(new MouseEvent('mouseenter')), `.workspace-leaf.mod-active .cm-callout .footnote-live-link`);
+		await browser.$('.footnote-live-popover.is-shown').waitForExist({ timeout: 5000 });
+		expect(await browser.$('.footnote-live-popover').getText()).toBe('Callout source.');
+		expect(await browser.$('.footnote-live-popover strong').getText()).toBe('Callout');
+	});
+
+	it('clicks a table inline link to reach its own text', async function () {
+		await browser.execute((sel: string) => {
+			const links = document.querySelectorAll<HTMLElement>(sel);
+			links[1]?.click();
+		}, `.workspace-leaf.mod-active .cm-table-widget .footnote-live-link`);
+		await browser.waitUntil(async () => (await cursorLine()) === 7, { timeout: 5000, timeoutMsg: 'inline table jump did not reach the cell source' });
+		const ch = await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getCursor().ch);
+		expect(ch).toBe(INLINE_NOTE.split('\n')[7]!.indexOf('^[') + 2);
+	});
+
+	it('presses Enter on a callout inline link to reach its source text', async function () {
+		await obsidianPage.openFile(INLINE_PATH);
+		await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.setCursor({ line: 0, ch: 0 }));
+		await waitForLinks(5);
+		await browser.execute((sel: string) => document.querySelector(sel)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })), `.workspace-leaf.mod-active .cm-callout .footnote-live-link`);
+		await browser.waitUntil(async () => (await cursorLine()) === 3, { timeout: 5000, timeoutMsg: 'inline Enter did not reach callout source' });
+		const ch = await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getCursor().ch);
+		expect(ch).toBe(INLINE_NOTE.split('\n')[3]!.indexOf('^[') + 2);
+	});
+
+	it('keeps source text and restores links after a cell edit', async function () {
+		await obsidianPage.openFile(INLINE_PATH);
+		await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.setCursor({ line: 0, ch: 0 }));
+		await waitForLinks(5);
+		await browser.executeObsidian(({ app }) => {
+			const editor = app.workspace.activeEditor?.editor;
+			editor?.replaceRange('New ', { line: 7, ch: 2 });
+			editor?.setCursor({ line: 0, ch: 0 });
+		});
+		await waitForLinks(5);
+		expect(await labels('.cm-table-widget')).toEqual(['4', '5', '3']);
+		const text = await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getValue());
+		expect(text).toBe(INLINE_NOTE.replace('| Cell^[', '| New Cell^['));
+	});
+});
