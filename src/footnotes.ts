@@ -18,6 +18,8 @@ export interface DefInfo {
 	ch?: number;
 	/** Zero based line of the "[^id]:" label. */
 	line: number;
+	/** Column where the text of the definition starts. */
+	at: number;
 	/** Text of the definition, continuation lines joined with one space. */
 	text: string;
 }
@@ -324,8 +326,10 @@ export function scanFootnotes(text: string): FootnoteScan {
 		const def = DEF_LINE.exec(line);
 		if (def) {
 			let body = def[2] ?? '';
+			const label = i;
+			const at = line.length - body.length;
 			while (/^(?: {2,}|\t)\S/.test(lines[i + 1] ?? '')) body += ` ${(lines[++i] ?? '').trim()}`;
-			defs.push({ id: def[1] ?? '', line: i, text: body.trim() });
+			defs.push({ id: def[1] ?? '', line: label, at, text: body.trim() });
 			continue;
 		}
 		const context: Context = table.has(i) ? 'table' : callout.has(i) ? 'callout' : quote.has(i) ? 'quote' : 'body';
@@ -333,7 +337,7 @@ export function scanFootnotes(text: string): FootnoteScan {
 		for (const note of inlineFootnotes(line)) {
 			const id = inlineId(i, note.start);
 			lineRefs.push({ id, line: i, ch: note.start, context });
-			defs.push({ id, line: i, ch: note.start, text: note.text });
+			defs.push({ id, line: i, ch: note.start, at: note.start + 2, text: note.text });
 		}
 		let ch = 0;
 		for (const part of splitRefs(line)) {
@@ -384,7 +388,7 @@ export function definitionOf(scan: FootnoteScan, id: string): DefInfo | null {
 /** Cursor place for a panel row: the definition text, inline text, or the first reference when there is no definition. */
 export function panelTarget(scan: FootnoteScan, id: string): { line: number; ch: number } | null {
 	const def = definitionOf(scan, id);
-	if (def) return { line: def.line, ch: def.ch !== undefined ? def.ch + 2 : `[^${id}]: `.length };
+	if (def) return { line: def.line, ch: def.at };
 	const ref = firstRef(scan, id);
 	return ref ? { line: ref.line, ch: ref.ch } : null;
 }

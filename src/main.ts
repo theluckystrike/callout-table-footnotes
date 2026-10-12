@@ -1,4 +1,4 @@
-import { Editor, Notice, Plugin } from 'obsidian';
+import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin } from 'obsidian';
 import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
 import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
@@ -40,7 +40,7 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 		this.registerMarkdownPostProcessor((el) => widgets.schedule(el));
 
 		this.addProCommand('show-footnotes', 'Show the footnotes of this note', 'The footnote panel', (editor) => this.showPanel(editor));
-		this.addProCommand('back-to-reference', 'Go from a footnote definition to its reference', 'The way back from a definition', (editor) => this.goBack(editor));
+		this.addProCommand('back-to-reference', 'Go from a footnote definition to its reference', 'The way back from a definition', (editor, ctx) => this.goBack(editor, ctx.file?.path ?? null));
 		this.addProCommand('check-footnotes', 'Check for unused and missing footnotes', 'The footnote check', (editor) => {
 			new Notice(describeProblems(scanFootnotes(editor.getValue())));
 		});
@@ -59,16 +59,16 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 	}
 
 	/** A command that runs in an editor. Without Pro it shows a notice that names the feature. */
-	private addProCommand(id: string, name: string, feature: string, run: (editor: Editor) => void): void {
+	private addProCommand(id: string, name: string, feature: string, run: (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => void): void {
 		this.addCommand({
 			id,
 			name,
-			editorCallback: (editor) => {
+			editorCallback: (editor, ctx) => {
 				if (!isPro()) {
 					new Notice(`${feature} is a pro feature. Sponsor on GitHub, then sign in from the plugin settings.`);
 					return;
 				}
-				run(editor);
+				run(editor, ctx);
 			},
 		});
 	}
@@ -84,12 +84,12 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 		}).open();
 	}
 
-	/** From a definition line: to the first reference. Elsewhere: back to where the last click on a reference started. */
-	private goBack(editor: Editor): void {
+	/** From a definition line: to the first reference. Elsewhere: back to where the last click on a reference in this note started. */
+	private goBack(editor: Editor, path: string | null): void {
 		const scan = scanFootnotes(editor.getValue());
 		const id = defIdOnLine(scan, editor.getCursor().line);
-		const target = id ? firstRef(scan, id) : this.widgets?.lastJump;
-		if (!target) {
+		const target = id ? firstRef(scan, id) : this.widgets?.backTarget(path);
+		if (!target || target.line > editor.lastLine()) {
 			new Notice('Place the caret on a footnote definition, or click a footnote reference first.');
 			return;
 		}

@@ -10,6 +10,7 @@ import {
 	labelOf,
 	locateRefs,
 	panelItems,
+	panelTarget,
 	scanFootnotes,
 	splitCells,
 	splitRefs,
@@ -164,5 +165,17 @@ describe('scanFootnotes helpers', () => {
 	it('names where a footnote is used', () => {
 		const s = scanFootnotes('> [!note] T\n> a[^1]\n\n| h |\n| - |\n| b[^1] |\n\n[^1]: x\n');
 		expect(panelItems(s)[0]?.where).toBe('callout, table');
+	});
+
+	it('keeps the label line of a definition that runs over several lines', () => {
+		const s = scanFootnotes('A[^long].\n\n[^long]: first\n  second\n  third\n');
+		expect(definitionOf(s, 'long')).toMatchObject({ line: 2, text: 'first second third' });
+		expect(defIdOnLine(s, 2)).toBe('long');
+		expect(panelTarget(s, 'long')).toEqual({ line: 2, ch: 9 });
+	});
+	it('puts the cursor at the start of the definition text, inside the line', () => {
+		expect(panelTarget(scanFootnotes('a[^a]\n[^a]:x'), 'a')).toEqual({ line: 1, ch: 5 });
+		expect(panelTarget(scanFootnotes('a[^a]\n  [^a]: x'), 'a')).toEqual({ line: 1, ch: 8 });
+		expect(panelTarget(scanFootnotes('a[^a]\n[^a]:'), 'a')).toEqual({ line: 1, ch: 5 });
 	});
 });

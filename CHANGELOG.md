@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.1.1
+
+### Patch Changes
+
+- beb1ac0: Go to the first line of a footnote definition that continues on indented lines, keep the cursor inside the note for an empty definition, cancel a waiting popup in a popout window, and keep the way back to a reference in its own note.
+
 ## 1.1.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 # Footnotes in Callouts and Tables
 
-Footnotes in Callouts and Tables fixes a gap in Live Preview. When you write a footnote reference inside a callout or a table cell, Obsidian shows it as a bare number or word. You cannot click it, and you cannot read the definition without scrolling. This plugin turns each of those references into a numbered link, like the footnote links that Obsidian draws in a normal paragraph. Hover over the link to read the definition. Click it to go to the definition.
+Footnotes in Callouts and Tables fixes a gap in Live Preview. When you write a footnote reference inside a callout or a table cell, Obsidian shows it as a bare number or word. You cannot click it, and you cannot read the definition without scrolling. This plugin turns those references into numbered links, like the footnote links that Obsidian draws in a normal paragraph. Hover over the link to read the definition. Click it to go to the definition.
 
 ## Features
 
@@ -40,13 +40,13 @@ A click on a link moves the cursor to the definition and scrolls to it. The line
 
 ### Footnote panel (Pro)
 
-The command "Show the footnotes of this note" opens a searchable list of all the footnotes. Each row shows the number, the definition, how many references the footnote has and where they are: body, callout, quote or table. Press Enter on a row to go to its definition. A footnote that has no definition, or that no reference uses, shows a warning line.
+The command "Show the footnotes of this note" opens a searchable list of the footnotes in the note. Each row shows the number, the definition, how many references the footnote has and where they are: body, callout, quote or table. Press Enter on a row to go to its definition. A footnote that has no definition, or that no reference uses, shows a warning line.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/footnote-panel.png" alt="The footnote panel with four rows: two normal footnotes, one without a definition and one that is never used" width="720">
 
 ### Warnings for unused and missing footnotes (Pro)
 
-With Pro, a reference that has no definition shows in red with a wavy underline, in callouts and in table cells. The command "Check for unused and missing footnotes" shows one notice that names each one, for example `Footnotes: 1 without a definition ([^risk]); 1 never used ([^old]).` The command "Go from a footnote definition to its reference" moves the cursor from a definition line to the first reference. If the cursor is not on a definition, it goes back to the place where you last clicked a reference.
+With Pro, a reference that has no definition shows in red with a dashed underline, in callouts and in table cells. The command "Check for unused and missing footnotes" shows one notice that names each one, for example `Footnotes: 1 without a definition ([^risk]); 1 never used ([^old]).` The command "Go from a footnote definition to its reference" moves the cursor from a definition line to the first reference. If the cursor is not on a definition, it goes back to the place where you last clicked a reference.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/warnings.png" alt="A callout and a table with one reference in red, and a notice that names the missing and the unused footnote" width="720">
 

@@ -107,3 +107,71 @@ describe('inline link navigation', () => {
 		expect(parentPress).not.toHaveBeenCalled();
 	});
 });
+
+describe('definition jumps and the popup timer', () => {
+	function setup(doc: string, path = 'a.md') {
+		const widgets = new FootnoteWidgets({
+			app: App.createConfigured__({ files: {} }) as never,
+			component: new Component(),
+			getSettings: () => DEFAULT_SETTINGS,
+			isPro: () => false,
+		});
+		const dom = document.createElement('div');
+		Object.defineProperty(dom, 'win', { value: window });
+		const dispatch = vi.fn();
+		// The editor info field of Obsidian gives the file of the editor.
+		const state = Object.assign(Object.create(EditorState.create({ doc })) as EditorState, { field: () => ({ file: { path } }) });
+		const view = { state, dom, dispatch, focus: vi.fn() } as unknown as EditorView;
+		return { widgets, view, dispatch };
+	}
+
+	it('keeps the cursor inside the note for an empty definition on the last line', () => {
+		vi.useFakeTimers();
+		try {
+			const doc = 'A[^a].\n[^a]:';
+			const { widgets, view, dispatch } = setup(doc);
+			expect(widgets.jumpToDefinition(view, 'a')).toBe(true);
+			expect(dispatch.mock.calls[0]?.[0].selection).toEqual({ anchor: doc.length });
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('goes to the label line of a definition that runs over several lines', () => {
+		vi.useFakeTimers();
+		try {
+			const doc = 'A[^long].\n[^long]: first\n  b';
+			const { widgets, view, dispatch } = setup(doc);
+			widgets.jumpToDefinition(view, 'long');
+			expect(dispatch.mock.calls[0]?.[0].selection).toEqual({ anchor: doc.indexOf('first') });
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('gives the way back only in the note where the click started', () => {
+		vi.useFakeTimers();
+		try {
+			const { widgets, view } = setup('A[^a].\n[^a]: x', 'notes/one.md');
+			widgets.jumpToDefinition(view, 'a');
+			expect(widgets.backTarget('notes/one.md')).toEqual({ line: 0, ch: 0 });
+			expect(widgets.backTarget('notes/two.md')).toBeNull();
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('cancels a pending popup in the window of the link, also in a popout window', () => {
+		const { widgets, view } = setup('A[^a].\n[^a]: x');
+		const link = widgets.makeRef(view, 'a').querySelector('a') as HTMLElement;
+		const popout = { setTimeout: vi.fn(() => 42), clearTimeout: vi.fn() };
+		Object.defineProperty(link, 'win', { value: popout });
+		link.dispatchEvent(new MouseEvent('mouseenter'));
+		expect(popout.setTimeout).toHaveBeenCalledOnce();
+		link.dispatchEvent(new MouseEvent('mouseleave'));
+		expect(popout.clearTimeout).toHaveBeenCalledWith(42);
+	});
+});

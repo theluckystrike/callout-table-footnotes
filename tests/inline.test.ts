@@ -27,7 +27,7 @@ describe('inline footnotes', () => {
 		expect(scan.refs.map((ref) => [ref.id, ref.ch])).toEqual([['inline 0:1', 1], ['n', 12], ['inline 0:18', 18], ['n', 29]]);
 		expect(scan.missing).toEqual([]);
 		expect(scan.unused).toEqual([]);
-		expect(definitionOf(scan, 'inline 0:1')).toEqual({ id: 'inline 0:1', line: 0, ch: 1, text: 'First.' });
+		expect(definitionOf(scan, 'inline 0:1')).toEqual({ id: 'inline 0:1', line: 0, ch: 1, at: 3, text: 'First.' });
 	});
 
 	it('gives equal text at different positions different numbers', () => {

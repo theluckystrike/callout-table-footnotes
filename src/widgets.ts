@@ -1,7 +1,7 @@
 // Live Preview draws a callout and a table as widgets and shows a footnote reference in them as its bare label ("2").
 // This module finds each label again and swaps it for a numbered link. It uses public API only: an editor extension
 // (a ViewPlugin) to get the EditorView of each editor, and a Markdown post processor that Obsidian runs on each widget.
-import { Component, MarkdownRenderer, type App } from 'obsidian';
+import { Component, MarkdownRenderer, editorInfoField, type App } from 'obsidian';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from '@codemirror/view';
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { MAX_BLOCK_LINES, blockFrom, widgetSource, definitionOf, firstRef, labelOf, locateRefs, scanFootnotes, type FootnoteScan, type Located } from './footnotes';
@@ -79,9 +79,10 @@ export class FootnoteWidgets {
 	private cache = new WeakMap<EditorView, { doc: unknown; scan: FootnoteScan }>();
 	private popover: HTMLElement | null = null;
 	private popoverComponent: Component | null = null;
-	private timer: number | null = null;
-	/** Where the last click on a reference started, for the Pro way back. */
-	lastJump: { line: number; ch: number } | null = null;
+	/** The popup that waits for the hover delay, with the window of its timer (a popout window has its own timers). */
+	private timer: { win: Window; id: number } | null = null;
+	/** Where the last click on a reference started, and the path of its note, for the Pro way back. */
+	private lastJump: { path: string | null; line: number; ch: number } | null = null;
 
 	constructor(private readonly host: WidgetHost) {}
 
@@ -220,12 +221,18 @@ export class FootnoteWidgets {
 		if (!def) return false;
 		const line = view.state.doc.line(def.line + 1);
 		const from = view.state.doc.lineAt(view.state.selection.main.head);
-		this.lastJump = { line: from.number - 1, ch: view.state.selection.main.head - from.from };
+		this.lastJump = { path: view.state.field(editorInfoField, false)?.file?.path ?? null, line: from.number - 1, ch: view.state.selection.main.head - from.from };
 		this.hide();
-		view.dispatch({ selection: { anchor: line.from + (def.ch !== undefined ? def.ch + 2 : `[^${id}]: `.length) }, scrollIntoView: true, effects: flashEffect.of(line.from) });
+		view.dispatch({ selection: { anchor: line.from + Math.min(def.at, line.length) }, scrollIntoView: true, effects: flashEffect.of(line.from) });
 		view.focus();
 		view.dom.win.setTimeout(() => view.dispatch({ effects: clearFlash.of(null) }), FLASH_MS);
 		return true;
+	}
+
+	/** Where the last click on a reference started, when it was in the note at path. Else null. */
+	backTarget(path: string | null): { line: number; ch: number } | null {
+		const jump = this.lastJump;
+		return jump && jump.path === path ? { line: jump.line, ch: jump.ch } : null;
 	}
 
 	/** Moves the cursor to the first reference of id. Returns false when the note has none. */
@@ -242,7 +249,8 @@ export class FootnoteWidgets {
 	private showSoon(view: EditorView, link: HTMLElement, id: string): void {
 		if (!this.host.getSettings().hoverPreview) return;
 		this.hide();
-		this.timer = link.win.setTimeout(() => void this.show(view, link, id), this.host.getSettings().hoverDelayMs);
+		const win = link.win;
+		this.timer = { win, id: win.setTimeout(() => void this.show(view, link, id), this.host.getSettings().hoverDelayMs) };
 	}
 
 	private async show(view: EditorView, link: HTMLElement, id: string): Promise<void> {
@@ -262,7 +270,7 @@ export class FootnoteWidgets {
 
 	/** Removes the popup and cancels a popup that has not shown yet. */
 	hide(): void {
-		if (this.timer !== null) window.clearTimeout(this.timer);
+		if (this.timer !== null) this.timer.win.clearTimeout(this.timer.id);
 		this.timer = null;
 		this.popover?.remove();
 		this.popover = null;
