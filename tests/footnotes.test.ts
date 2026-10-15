@@ -179,3 +179,93 @@ describe('scanFootnotes helpers', () => {
 		expect(panelTarget(scanFootnotes('a[^a]\n[^a]:'), 'a')).toEqual({ line: 1, ch: 5 });
 	});
 });
+
+
+describe('named references inside definitions', () => {
+	it('does not warn about a definition used only by another definition', () => {
+		const scan = scanFootnotes('Body[^a]\n[^a]: See [^b]\n[^b]: Detail');
+		expect(describeProblems(scan)).toBe('Footnotes: all 2 have a reference and a definition.');
+		expect(firstRef(scan, 'b')).toEqual({ id: 'b', line: 1, ch: 10, context: 'body' });
+		expect(panelItems(scan).map((row) => [row.id, row.refs, row.problem])).toEqual([
+			['a', 1, null], ['b', 1, null],
+		]);
+	});
+
+	it('keeps continuation positions, repeated references and genuinely unused definitions', () => {
+		const scan = scanFootnotes('Body[^a]\n  [^a]: See [^b]\n  More [^b] and [^missing]\n\tSee [^c]\n[^b]: First\n[^b]: Duplicate\n[^c]: Detail\n[^old]: Never referenced');
+		expect(scan.refs.map(({ id, line, ch }) => [id, line, ch])).toEqual([
+			['a', 0, 4], ['b', 1, 12], ['b', 2, 7], ['missing', 2, 16], ['c', 3, 5],
+		]);
+		expect(scan.missing).toEqual(['missing']);
+		expect(scan.unused).toEqual(['old']);
+		expect(scan.numbers).toEqual({ a: 1, b: 2, c: 3 });
+		expect(definitionOf(scan, 'a')).toEqual({ id: 'a', line: 1, at: 8, text: 'See [^b] More [^b] and [^missing] See [^c]' });
+		expect(definitionOf(scan, 'b')?.text).toBe('First');
+		expect(scan.defs.filter((def) => def.id === 'b')).toHaveLength(2);
+	});
+
+	it('skips code spans, escaped references and fenced continuation code', () => {
+		const scan = scanFootnotes([
+			'---', 'example: "[^yaml]"', '---', 'Body[^a]',
+			'[^a]: `[^code]` and \\[^escaped] and [^b]',
+			'  ```md', '  [^hidden]', '  ```',
+			'  See [^c] and ``[^code2]`` and \\[^escaped2]',
+			'[^b]: Detail', '[^c]: Detail', '[^code]: Unused',
+			'```md', '[^outside]', '```',
+		].join('\n'));
+		expect(scan.refs.map((ref) => ref.id)).toEqual(['a', 'b', 'c']);
+		expect(scan.missing).toEqual([]);
+		expect(scan.unused).toEqual(['code']);
+		expect(firstRef(scan, 'c')).toMatchObject({ line: 8, ch: 6 });
+	});
+
+	it.each([
+		['first-body backticks', '```md', ['  [^hidden]', '  ```']],
+		['first-body tildes', '~~~md', ['  [^hidden]', '  ~~~']],
+		['shorter marker', 'Detail', ['  ````md', '  ```', '  [^hidden]', '  ````']],
+		['different marker', 'Detail', ['  ```md', '  ~~~', '  [^hidden]', '  ```']],
+		['closing suffix is code', '```md', ['  ``` more', '  [^hidden]', '  ```']],
+		['longer close and spaces', '~~~md', ['  [^hidden]', '  ~~~~  ']],
+		['blank fenced line', '```md', ['  ', '  [^hidden]', '  ```']],
+		['unclosed fence ends with definition', '```md', ['  [^hidden]']],
+	] as const)('protects definition code and later source: %s', (_name, body, continuation) => {
+		const lines = ['Use[^a]', `[^a]: ${body}`, ...continuation, 'Use[^b]', '[^b]: Detail'];
+		const scan = scanFootnotes(lines.join('\n'));
+		expect(scan.refs).toEqual([
+			{ id: 'a', line: 0, ch: 3, context: 'body' },
+			{ id: 'b', line: lines.length - 2, ch: 3, context: 'body' },
+		]);
+		expect(scan.defs.map(({ id, line, at }) => ({ id, line, at }))).toEqual([
+			{ id: 'a', line: 1, at: 6 }, { id: 'b', line: lines.length - 1, at: 6 },
+		]);
+		expect(scan.numbers).toEqual({ a: 1, b: 2 });
+		expect(scan.missing).toEqual([]);
+		expect(scan.unused).toEqual([]);
+	});
+
+	it('resumes nested references after a valid close with tabs and original columns', () => {
+		const scan = scanFootnotes('Use[^a]\n[^a]: ````md\n\t[^hidden]\n\t````` \n\tSee [^b] and `[^code]` and \\[^escaped]\n[^b]: Detail');
+		expect(scan.refs).toEqual([
+			{ id: 'a', line: 0, ch: 3, context: 'body' },
+			{ id: 'b', line: 4, ch: 5, context: 'body' },
+		]);
+		expect(scan.missing).toEqual([]);
+		expect(scan.unused).toEqual([]);
+	});
+
+	it('does not open a backtick fence with a backtick in its info string', () => {
+		const scan = scanFootnotes('Use[^a]\n[^a]: ```md` [^b]\n  See [^c]\n[^b]: Detail\n[^c]: Detail');
+		expect(scan.refs.map(({ id, line, ch }) => [id, line, ch])).toEqual([
+			['a', 0, 3], ['b', 1, 13], ['c', 2, 6],
+		]);
+		expect(scan.missing).toEqual([]);
+		expect(scan.unused).toEqual([]);
+	});
+
+	it('counts actual self and cycle references without counting bare definition labels', () => {
+		const scan = scanFootnotes('[^self]: See [^self]\n[^a]: See [^b]\n[^b]: See [^a]\n[^alone]: Detail');
+		expect(scan.refs.map((ref) => ref.id)).toEqual(['self', 'b', 'a']);
+		expect(scan.unused).toEqual(['alone']);
+		expect(scan.missing).toEqual([]);
+	});
+});

@@ -10,7 +10,7 @@ Write a footnote the usual way, with a label such as `[^2]` in the callout text 
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/without-plugin.png" alt="Live Preview without the plugin: the references in a callout and in a table cell show as the plain text percent2, sites3 and log4" width="720">
 
-With the plugin, the same text shows a raised number that you can click. The number follows the order of first use in the note, the same order that the reading view uses. A reference that has no definition keeps the id that you typed.
+With the plugin, the same text shows a raised number that you can click. The scanner numbers references by first use. Reading view can differ, including for footnote-like text in inline math. A reference that has no definition keeps the id that you typed.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/callout.png" alt="Live Preview with the plugin: the references in the callout are raised, numbered links" width="720">
 

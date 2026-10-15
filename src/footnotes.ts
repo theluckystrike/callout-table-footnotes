@@ -303,6 +303,30 @@ function calloutLines(lines: string[]): { callout: Set<number>; quote: Set<numbe
 	return { callout, quote };
 }
 
+/** Named references with their original source columns, also used for definition text. */
+function namedRefs(text: string, line: number, context: Context, offset = 0): RefInfo[] {
+	const refs: RefInfo[] = [];
+	let ch = offset;
+	for (const part of splitRefs(text)) {
+		if ('text' in part) ch += part.text.length;
+		else {
+			refs.push({ id: part.id, line, ch, context });
+			ch += part.id.length + 3;
+		}
+	}
+	return refs;
+}
+
+/** Definition fences use matching markers; a closing line has no info string. */
+function definitionFence(text: string, open: string | null): string | null {
+	const match = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(text);
+	if (!match) return open;
+	const marker = match[1] ?? '';
+	const rest = match[2] ?? '';
+	if (open) return marker[0] === open[0] && marker.length >= open.length && !rest.trim() ? null : open;
+	return marker[0] === '`' && rest.includes('`') ? null : marker;
+}
+
 /** Reads the references and definitions of a note. Code blocks, code spans and front matter are skipped. */
 export function scanFootnotes(text: string): FootnoteScan {
 	const lines = text.split('\n');
@@ -328,7 +352,15 @@ export function scanFootnotes(text: string): FootnoteScan {
 			let body = def[2] ?? '';
 			const label = i;
 			const at = line.length - body.length;
-			while (/^(?: {2,}|\t)\S/.test(lines[i + 1] ?? '')) body += ` ${(lines[++i] ?? '').trim()}`;
+			let bodyFence = definitionFence(body, null);
+			if (!bodyFence) refs.push(...namedRefs(body, i, 'body', at));
+			while (i + 1 < lines.length && (/^(?: {2,}|\t)\S/.test(lines[i + 1] ?? '') || (bodyFence && !lines[i + 1]?.trim()))) {
+				const continuation = lines[++i] ?? '';
+				body += ` ${continuation.trim()}`;
+				const previousFence = bodyFence;
+				bodyFence = definitionFence(continuation, bodyFence);
+				if (!previousFence && !bodyFence) refs.push(...namedRefs(continuation, i, 'body'));
+			}
 			defs.push({ id: def[1] ?? '', line: label, at, text: body.trim() });
 			continue;
 		}
@@ -339,14 +371,7 @@ export function scanFootnotes(text: string): FootnoteScan {
 			lineRefs.push({ id, line: i, ch: note.start, context });
 			defs.push({ id, line: i, ch: note.start, at: note.start + 2, text: note.text });
 		}
-		let ch = 0;
-		for (const part of splitRefs(line)) {
-			if ('text' in part) ch += part.text.length;
-			else {
-				lineRefs.push({ id: part.id, line: i, ch, context });
-				ch += part.id.length + 3;
-			}
-		}
+		lineRefs.push(...namedRefs(line, i, context));
 		refs.push(...lineRefs.sort((a, b) => a.ch - b.ch));
 	}
 	return summarize(refs, defs);

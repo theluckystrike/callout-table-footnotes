@@ -219,3 +219,77 @@ describe(`${pluginId} inline footnotes in the real app`, function () {
 		expect(text).toBe(INLINE_NOTE.replace('| Cell^[', '| New Cell^['));
 	});
 });
+
+
+describe(`${pluginId} nested named references in the real app`, function () {
+	it('checks nested references, navigates to their source and leaves the note unchanged', async function () {
+		const text = [
+			'Body[^a]', '', '> [!note] Nested sources', '> Read[^b]', '',
+			'[^a]: See [^b]', '  Also [^c] and [^missing]',
+			'[^b]: Detail', '[^c]: More detail', '[^old]: Never referenced',
+		].join('\n');
+		await obsidianPage.write('Nested footnotes.md', text);
+		await obsidianPage.openFile('Nested footnotes.md');
+		await waitForLinks(1);
+		await setPro(true);
+		try {
+			await browser.executeObsidianCommand(`${pluginId}:check-footnotes`);
+			await browser.waitUntil(async () => (await lastNotice()) === 'Footnotes: 1 without a definition ([^missing]); 1 never used ([^old]).', { timeout: 5000, timeoutMsg: 'nested-reference diagnostics were incorrect' });
+			await browser.executeObsidianCommand(`${pluginId}:show-footnotes`);
+			await browser.$('.prompt').waitForExist({ timeout: 5000 });
+			const rows = await browser.$$('.prompt .suggestion-item').map((row) => row.getText());
+			expect(rows.length).toBe(5);
+			expect(rows.filter((row) => row.includes('Warning: never used')).length).toBe(1);
+			await browser.keys('Escape');
+			await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.setCursor({ line: 8, ch: 6 }));
+			await browser.executeObsidianCommand(`${pluginId}:back-to-reference`);
+			await browser.waitUntil(async () => (await cursorLine()) === 6, { timeout: 5000, timeoutMsg: 'did not return to the continuation reference' });
+			const cursor = await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getCursor());
+			expect(cursor).toEqual({ line: 6, ch: 7 });
+			const appVersion = await browser.executeObsidian(({ obsidian }) => obsidian.apiVersion);
+			console.info('Nested footnote app proof', JSON.stringify({ appVersion, cursor, rows, notice: await lastNotice() }));
+			expect(await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getValue())).toBe(text);
+		} finally {
+			await setPro(false);
+		}
+	});
+});
+
+
+describe(`${pluginId} definition fences in the real app`, function () {
+	it('protects the four peer counterexamples and retains later navigation', async function () {
+		const cases = [
+			['```md', '  [^hidden]', '  ```'],
+			['~~~md', '  [^hidden]', '  ~~~'],
+			['Detail', '  ````md', '  ```', '  [^hidden]', '  ````'],
+			['Detail', '  ```md', '  ~~~', '  [^hidden]', '  ```'],
+		];
+		await setPro(true);
+		try {
+			for (const [body, ...continuation] of cases) {
+				const lines = ['Use[^a]', `[^a]: ${body}`, ...continuation, 'Use[^b]', '[^b]: Detail'];
+				const text = lines.join('\n');
+				await obsidianPage.write('Fenced definition.md', text);
+				await obsidianPage.openFile('Fenced definition.md');
+				await browser.executeObsidianCommand(`${pluginId}:check-footnotes`);
+				await browser.waitUntil(async () => (await lastNotice()) === 'Footnotes: all 2 have a reference and a definition.', { timeout: 5000, timeoutMsg: 'fenced code leaked into diagnostics or hid the later definition' });
+				await browser.executeObsidianCommand(`${pluginId}:show-footnotes`);
+				await browser.$('.prompt').waitForExist({ timeout: 5000 });
+				const rows = await browser.$$('.prompt .suggestion-item').map((row) => row.getText());
+				expect(rows.length).toBe(2);
+				expect(rows.some((row) => row.includes('Warning:'))).toBe(false);
+				expect(rows[1]).toContain('2. Detail');
+				await browser.keys('Escape');
+				await browser.executeObsidian(({ app }, line) => app.workspace.activeEditor?.editor?.setCursor({ line, ch: 6 }), lines.length - 1);
+				await browser.executeObsidianCommand(`${pluginId}:back-to-reference`);
+				await browser.waitUntil(async () => (await cursorLine()) === lines.length - 2, { timeout: 5000, timeoutMsg: 'later reference lost after definition fence' });
+				const cursor = await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getCursor());
+				expect(cursor).toEqual({ line: lines.length - 2, ch: 3 });
+				expect(await browser.executeObsidian(({ app }) => app.workspace.activeEditor?.editor?.getValue())).toBe(text);
+				console.info('Definition fence app proof', JSON.stringify({ body, continuation, cursor, rows, notice: await lastNotice(), appVersion: await browser.executeObsidian(({ obsidian }) => obsidian.apiVersion) }));
+			}
+		} finally {
+			await setPro(false);
+		}
+	});
+});

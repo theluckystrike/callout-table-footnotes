@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.1.3
+
+### Patch Changes
+
+- 2f3a9ce: Count named references in footnote definition bodies and continuation lines so the unused-footnote check and reference navigation include them. Preserve code exclusions and source positions. Clarify that scanner numbering can differ from Reading view.
+
 ## 1.1.2
 
 ### Patch Changes
