@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.1.4
+
+### Patch Changes
+
+- f348b90: Number footnote IDs without inherited object properties. Replace complete labels with punctuation or supplementary Unicode letters. Match code fences by marker and length.
+
 ## 1.1.3
 
 ### Patch Changes

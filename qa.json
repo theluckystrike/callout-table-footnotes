@@ -3,7 +3,7 @@
 		"feature": "without-plugin",
 		"caption": "Without the plugin, Live Preview shows the reference in a callout and in a table cell as plain text: no number, no link.",
 		"note": "Field notes.md",
-		"eval": "(async () => { await app.plugins.disablePlugin('callout-table-footnotes'); app.workspace.getMostRecentLeaf().rebuildView(); await new Promise((r) => setTimeout(r, 1200)); return 'ok'; })()",
+		"eval": "(async () => { document.querySelectorAll('.modal-container').forEach(el => el.remove()); const l=app.workspace.getLeaf(false); const s=l.getViewState(); await l.setViewState({...s,state:{...s.state,mode:'source',source:false}}); await app.plugins.disablePlugin('callout-table-footnotes'); app.workspace.getMostRecentLeaf().rebuildView(); await new Promise((r) => setTimeout(r, 1200)); return 'ok'; })()",
 		"after": "(async () => { await app.plugins.enablePlugin('callout-table-footnotes'); await new Promise((r) => setTimeout(r, 300)); app.workspace.getMostRecentLeaf().rebuildView(); await new Promise((r) => setTimeout(r, 1200)); return 'ok'; })()",
 		"wait": 600
 	},
@@ -84,5 +84,12 @@
 		"eval": "(async () => { const labels = Array.from(document.querySelectorAll('.workspace-leaf.mod-active .footnote-live-link')).map((e) => e.textContent).join(','); if (labels !== '1,2,3,2') throw new Error('Wrong inline numbers: ' + labels); const link = document.querySelector('.workspace-leaf.mod-active .cm-callout .footnote-live-link'); link.dispatchEvent(new MouseEvent('mouseenter')); await new Promise((r) => setTimeout(r, 900)); const pop = document.querySelector('.footnote-live-popover.is-shown'); if (!pop?.textContent.includes('Each plot had the same area.')) throw new Error('Inline preview is missing'); return labels; })()",
 		"after": "app.plugins.plugins['callout-table-footnotes'].widgets.hide()",
 		"wait": 600
+	},
+	{
+		"feature": "hard-inputs",
+		"caption": "Regression checks for hard inputs.",
+		"note": "Hard inputs.md",
+		"eval": "(async () => { const l=app.workspace.getLeaf(false); const s=l.getViewState(); await l.setViewState({...s,state:{...s.state,mode:'source',source:false}}); l.view.editor.setCursor({line:0,ch:0}); await new Promise(r=>setTimeout(r,1200)); const refs=Array.from(l.view.containerEl.querySelectorAll('.footnote-live-link')).map(x=>x.textContent); if(refs.join(',')!=='1,2') throw new Error('Wrong nested or code labels '+refs); if(l.view.containerEl.querySelector('.callout-content')?.textContent.includes('__')) throw new Error('Label punctuation remains'); return 'hard inputs passed'; })()",
+		"wait": 700
 	}
 ]

@@ -48,7 +48,6 @@ const ID = '[^\\]\\s^]+';
 const CODE_SPAN = /(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
 const DEF_LINE = new RegExp(`^ {0,3}\\[\\^(${ID})\\]:[ \\t]?(.*)$`);
 const DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
-const FENCE = /^\s*(?:```|~~~)/;
 const ALNUM = /[\p{L}\p{N}]/u;
 /** Longest piece of source text one scan reads after a widget start. Keeps a scan bounded. */
 export const MAX_BLOCK_LINES = 400;
@@ -150,15 +149,14 @@ export function blockFrom(lines: string[], start: number, kind: 'callout' | 'tab
 
 /** The text a callout body shows: the lines after the title line, quote marks and syntax removed. */
 export function calloutSource(block: string[]): string {
-	let fenced = false;
+	let fenced: string | null = null;
 	const out: string[] = [];
 	for (const raw of block.slice(1)) {
 		const body = raw.replace(/^(?:\s*>)+ ?/, '');
-		if (FENCE.test(body)) {
-			fenced = !fenced;
-			continue;
-		}
-		out.push(fenced ? body : stripLine(body));
+		const previousFence: string | null = fenced;
+		fenced = definitionFence(body, fenced);
+		if (fenced !== previousFence) continue;
+		out.push(fenced ? body.replace(/\[\^/g, '\\[^') : stripLine(body));
 	}
 	return out.join('\n');
 }
@@ -219,10 +217,12 @@ export function widgetSource(block: string[], startLine: number, cell?: { row: n
 		};
 	}
 	let next = 1;
-	let fenced = false;
+	let fenced: string | null = null;
 	const inlineIds: string[] = [];
 	const rendered = block.map((raw, line) => {
-		if (FENCE.test(raw.replace(/^(?:\s*>)+ ?/, ''))) { fenced = !fenced; return raw; }
+		const previousFence: string | null = fenced;
+		fenced = definitionFence(raw.replace(/^(?:\s*>)+ ?/, ''), fenced);
+		if (fenced !== previousFence) return raw;
 		if (fenced) return raw;
 		const notes = inlineFootnotes(raw);
 		if (line > 0) inlineIds.push(...notes.map((note) => inlineId(startLine + line, note.start)));
@@ -270,7 +270,14 @@ export function locateRefs(rendered: string, source: string): Located[] | null {
 		const want = normalize(part.id).chars;
 		if (want.length === 0) continue;
 		if (want.some((ch, k) => r.chars[pos + k] !== ch)) return null;
-		out.push({ id: part.id, start: r.at[pos] ?? 0, end: (r.at[pos + want.length - 1] ?? 0) + 1 });
+		let start = r.at[pos] ?? 0;
+		const last = r.at[pos + want.length - 1] ?? 0;
+		let end = last + ((rendered.codePointAt(last) ?? 0) > 0xffff ? 2 : 1);
+		const prefix = /^[^\p{L}\p{N}]*/u.exec(part.id)?.[0] ?? '';
+		const suffix = /[^\p{L}\p{N}]*$/u.exec(part.id)?.[0] ?? '';
+		if (rendered.slice(start - prefix.length, start) === prefix) start -= prefix.length;
+		if (rendered.slice(end, end + suffix.length) === suffix) end += suffix.length;
+		out.push({ id: part.id, start, end });
 		pos += want.length;
 	}
 	return out;
@@ -339,13 +346,12 @@ export function scanFootnotes(text: string): FootnoteScan {
 	const { callout, quote } = calloutLines(lines);
 	const refs: RefInfo[] = [];
 	const defs: DefInfo[] = [];
-	let fenced = false;
+	let fenced: string | null = null;
 	for (let i = start; i < lines.length; i++) {
 		const line = lines[i] ?? '';
-		if (FENCE.test(line.replace(/^(?:\s*>)+ ?/, ''))) {
-			fenced = !fenced;
-			continue;
-		}
+		const previousFence: string | null = fenced;
+		fenced = definitionFence(line.replace(/^(?:\s*>)+ ?/, ''), fenced);
+		if (fenced !== previousFence) continue;
 		if (fenced) continue;
 		const def = DEF_LINE.exec(line);
 		if (def) {
@@ -380,7 +386,7 @@ export function scanFootnotes(text: string): FootnoteScan {
 function summarize(refs: RefInfo[], defs: DefInfo[]): FootnoteScan {
 	const defined = new Set(defs.map((d) => d.id));
 	const referenced = new Set(refs.map((r) => r.id));
-	const numbers: Record<string, number> = {};
+	const numbers: Record<string, number> = Object.create(null) as Record<string, number>;
 	let n = 0;
 	for (const r of refs) if (defined.has(r.id) && numbers[r.id] === undefined) numbers[r.id] = ++n;
 	return {

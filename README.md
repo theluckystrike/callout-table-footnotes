@@ -99,7 +99,7 @@ No. The plugin reads the text of the note to find the references and the definit
 
 ### Does it work with named labels like `[^source]`?
 
-Yes. The label can hold letters, digits, hyphens and `_`. The link shows the number. Turn off "Show numbers" to show the label.
+Yes. The label can hold letters, digits, hyphens and `_`. Labels such as `constructor` and `__proto__` get numbers too. The link shows the number. Turn off "Show numbers" to show the label.
 
 ### Why does a reference in a normal paragraph still show as `[^1]`?
 
