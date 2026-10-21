@@ -2,6 +2,7 @@ import { PluginSettingTab, type SettingDefinitionItem } from 'obsidian';
 import { sponsorsSettingItems } from './license/github-obsidian';
 import { PRO_UI, isPro } from './pro';
 import type CalloutTableFootnotesPlugin from './main';
+import { helloSettingItems } from './hello/settings';
 
 export interface CalloutTableFootnotesSettings {
 	/** Show the footnote number (1, 2, 3) instead of the id that you typed. */
@@ -41,6 +42,11 @@ export class CalloutTableFootnotesSettingTab extends PluginSettingTab {
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
+		// The product rows, then the "More from NoteMods" card (packages/hello).
+		return [...this.productSettingDefinitions(), ...helloSettingItems()];
+	}
+
+	productSettingDefinitions(): SettingDefinitionItem[] {
 		return [
 			...(this.plugin.pro ? sponsorsSettingItems(this.plugin.pro, PRO_UI) : []),
 			{

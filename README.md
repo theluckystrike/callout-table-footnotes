@@ -36,7 +36,7 @@ Rest the pointer on a link to see the text of the definition in a small popup. T
 
 ### Click to go to the definition
 
-A click on a link moves the cursor to the definition and scrolls to it. The line of the definition shows a colour for a moment, so you can see where you are. The plugin stops the press on the link, so a table does not start to edit the cell. The links also work with the keyboard: Tab to a link, then press Enter.
+A click on a link moves the cursor to the definition and scrolls to it. The definition line lights up for a moment, so you see where you are. The plugin stops the press on the link, so a table does not start to edit the cell. The links also work with the keyboard: Tab to a link, then press Enter.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/footnote-jump.gif" alt="A note with a callout and a table: the pointer moves over a reference in a table cell, a click goes to its definition at the end of the note, and the definition line lights up" width="720">
 
@@ -61,7 +61,7 @@ To install by hand, copy `main.js`, `manifest.json` and `styles.css` from the la
 
 ## Usage
 
-There is nothing to set up. Open a note in Live Preview with a footnote reference in a callout or a table, and the links show.
+There is nothing to set up. Open a note in Live Preview with a reference in a callout or a table, and the links show.
 
 1. Write the reference as `[^label]` and the definition as `[^label]: text` on its own line, anywhere in the note.
 2. Rest the pointer on a link to read the definition.
@@ -74,6 +74,8 @@ A definition can run over several lines if you indent the next lines by two spac
 The plugin reads the source text with an editor extension and a Markdown post processor. It makes links after the widget is drawn. If the source and the widget do not match, it leaves the widget as drawn. It uses public API hooks.
 
 ## Settings
+
+After a minor or major update, this plugin opens one What's new tab in the background. The tab and settings card suggest other NoteMods plugins and Zovo Chat and link to notemods.com for feedback ([privacy](https://notemods.com/privacy/)). The tab sends no data. Turn the tab off in Settings.
 
 | Setting | What it does |
 | --- | --- |
@@ -97,7 +99,7 @@ If you sponsor after you sign in, select Refresh. A negative sponsorship answer 
 
 ### Does it change my notes?
 
-No. The plugin reads the text of the note to find the references and the definitions. It never writes to a note.
+No. The plugin reads the note text to find references and definitions. It never writes to a note.
 
 ### Does it work with named labels like `[^source]`?
 
@@ -105,7 +107,7 @@ Yes. The label can hold letters, digits, hyphens and `_`. Labels such as `constr
 
 ### Why does a reference in a normal paragraph still show as `[^1]`?
 
-Live Preview draws it that way, and the plugin leaves it. The plugin only changes bare labels.
+Live Preview draws it that way. The plugin only changes bare labels.
 
 ### Which footnotes does it not handle?
 

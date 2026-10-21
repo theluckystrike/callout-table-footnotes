@@ -6,6 +6,8 @@ import { CalloutTableFootnotesSettingTab, DEFAULT_SETTINGS, normalizeSettings, t
 import { FootnotePanel } from './panel';
 import { FootnoteWidgets } from './widgets';
 import { defIdOnLine, describeProblems, firstRef, panelItems, panelTarget, scanFootnotes } from './footnotes';
+import { setupHello } from './hello/index';
+import WHATS_NEW from './whats-new.json';
 
 const PRO_CLASS = 'footnote-live-pro';
 /** How often to ask the license state whether a check is due. It sends a request only when signed in and due (7 days). */
@@ -20,6 +22,8 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 	private settingTab: CalloutTableFootnotesSettingTab | null = null;
 
 	async onload(): Promise<void> {
+		// First: "What's new" reads its state before the settings load (packages/hello). It does not wait.
+		setupHello(this, WHATS_NEW);
 		await this.loadSettings();
 		// No request here: a request needs a GitHub sign in first (Settings, Pro, Sign in with GitHub).
 		const pro = createGitHubSponsors(this.app, this.manifest.id, SPONSORS, this);
