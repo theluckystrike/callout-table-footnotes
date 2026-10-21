@@ -1,7 +1,7 @@
 {
 	"id": "callout-table-footnotes",
 	"name": "Footnotes in Callouts and Tables",
-	"version": "1.1.4",
+	"version": "1.1.5",
 	"minAppVersion": "1.13.4",
 	"description": "Shows footnote references as numbered links inside callouts and table cells in Live Preview, with a hover preview and a jump to the definition.",
 	"author": "Michael Lip",

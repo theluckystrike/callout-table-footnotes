@@ -1,6 +1,6 @@
 # Footnotes in Callouts and Tables
 
-Footnotes in Callouts and Tables fixes a gap in Live Preview. When you write a footnote reference inside a callout or a table cell, Obsidian shows it as a bare number or word. You cannot click it, and you cannot read the definition without scrolling. This plugin turns those references into numbered links, like the footnote links that Obsidian draws in a normal paragraph. Hover over the link to read the definition. Click it to go to the definition.
+Footnotes in Callouts and Tables turns references in callouts and table cells into numbered links. Hover to read a definition or click to go to it. Live Preview does not link these references by itself.
 
 ## Features
 
@@ -9,6 +9,8 @@ Footnotes in Callouts and Tables fixes a gap in Live Preview. When you write a f
 Write a footnote the usual way, with a label such as `[^2]` in the callout text and the definition anywhere in the note. Without the plugin, Live Preview shows the label as plain text next to the word.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/without-plugin.png" alt="Live Preview without the plugin: the references in a callout and in a table cell show as the plain text percent2, sites3 and log4" width="720">
+
+Free: footnote links in callouts and tables, previews, jumps. Pro: a panel, return links, warnings. $15 one time or $5 a month: [Sponsor](https://github.com/sponsors/theluckystrike?metadata_source=callout-table-footnotes) or [$15 one-time offer](https://github.com/sponsors/theluckystrike/sponsorships?tier_id=666162&metadata_source=callout-table-footnotes).
 
 With the plugin, the same text shows a raised number that you can click. The scanner numbers references by first use. Reading view can differ, including for footnote-like text in inline math. A reference that has no definition keeps the id that you typed.
 
@@ -83,9 +85,9 @@ The settings tab also has the Pro section: sign in with GitHub, the status line 
 
 ## Pro
 
-The free version has the numbered links for named and inline footnotes in callouts and tables, the hover preview and the jump to the definition. Pro adds the footnote panel, the way back from a definition to its reference, the red warning for a reference without a definition, and the check for unused and missing footnotes. To get it:
+To sign in and enable Pro:
 
-1. Sponsor [theluckystrike on GitHub Sponsors](https://github.com/sponsors/theluckystrike) with $5 a month, or $15 once. A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply.
+1. Sponsor via [GitHub Sponsors](https://github.com/sponsors/theluckystrike?metadata_source=callout-table-footnotes). A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply.
 2. In Obsidian, open the settings of Footnotes in Callouts and Tables and select "Sign in with GitHub".
 3. The plugin copies a code and opens github.com/login/device. Paste the code there and approve.
 
@@ -126,6 +128,8 @@ After sign in, Footnotes in Callouts and Tables sends one query to `https://api.
 After a successful check, Pro can work offline for up to 14 days. Sign out or a negative sponsorship answer turns Pro off. The plugin stores the GitHub token through the secret storage API of Obsidian. It does not put the token in its saved settings or its local sponsorship data. The local storage of this device keeps your GitHub login, the tier and the time of the last check. Sign out clears the token. You can also revoke the access in your GitHub settings, under Applications.
 
 ## Support
+
+Plugin page: [callout-table-footnotes](https://notemods.com/plugins/callout-table-footnotes/).
 
 Report bugs and ask for features in the GitHub issues of this repository. Add your Obsidian version and a small sample note.
 

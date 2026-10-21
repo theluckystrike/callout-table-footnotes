@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.1.5
+
+### Patch Changes
+
+- 2ebc204: Add storefront links for the free and Pro offers.
+
 ## 1.1.4
 
 ### Patch Changes
