@@ -1,5 +1,12 @@
 # callout-table-footnotes
 
+## 1.3.0
+
+### Minor Changes
+
+- In Live Preview, inline footnotes in paragraphs, lists and blockquotes now show as small numbers with a hover preview and a click to the text.
+- Footnote-like text in math and comments is no longer counted or numbered, as in Reading view, so some later numbers in callouts and tables go down by one.
+
 ## 1.2.0
 
 ### Minor Changes

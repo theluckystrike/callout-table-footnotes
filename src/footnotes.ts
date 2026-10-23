@@ -33,6 +33,8 @@ export interface FootnoteScan {
 	missing: string[];
 	/** Ids with a definition and no reference. */
 	unused: string[];
+	/** Zero based lines of named definitions and their continuation lines. */
+	defLines: Set<number>;
 }
 
 export type Part = { text: string } | { id: string };
@@ -52,6 +54,83 @@ const ALNUM = /[\p{L}\p{N}]/u;
 /** Longest piece of source text one scan reads after a widget start. Keeps a scan bounded. */
 export const MAX_BLOCK_LINES = 400;
 
+/** Inline math on one line ("$x$") as spaces. A "$" after a space or before a digit does not close it. */
+function maskInlineMath(text: string): string {
+	let out = '';
+	let last = 0;
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === '\\') {
+			i++;
+			continue;
+		}
+		if (text[i] !== '$' || text[i + 1] === '$' || /\s/.test(text[i + 1] ?? ' ')) continue;
+		let close = -1;
+		for (let j = i + 1; j < text.length; j++) {
+			if (text[j] === '\\') {
+				j++;
+				continue;
+			}
+			if (text[j] === '$' && !/\s/.test(text[j - 1] ?? ' ') && !/[$\d]/.test(text[j + 1] ?? '')) {
+				close = j;
+				break;
+			}
+		}
+		// No later "$" can close either, since a closing "$" does not depend on the opening one.
+		if (close < 0) break;
+		out += text.slice(last, i) + ' '.repeat(close + 1 - i);
+		last = close + 1;
+		i = close;
+	}
+	return out + text.slice(last);
+}
+const BLOCK_OPEN = /%%|\$\$|<!--/;
+const blank = (m: string): string => ' '.repeat(m.length);
+
+/** A comment or display math block that is still open at the end of a line, by its closing marker. */
+export type OpenBlock = '%%' | '$$' | '-->' | null;
+
+/**
+ * The line with code spans, comments (%% and HTML) and math as spaces, so the result has the same length as the line.
+ * open is the block that an earlier line left open. Returns the block that this line leaves open. A marker whose
+ * closing marker is not later on the line opens a block only when closesLater(closer, column after the marker) is
+ * true. By default it does not, so "50%% off" in prose hides nothing.
+ */
+export function maskLine(line: string, open: OpenBlock = null, closesLater: (closer: Exclude<OpenBlock, null>, at: number) => boolean = () => false): { masked: string; open: OpenBlock } {
+	const text = line.replace(CODE_SPAN, blank);
+	let out = '';
+	let i = 0;
+	while (i < text.length) {
+		if (open) {
+			const end = text.indexOf(open, i);
+			if (end < 0) {
+				out += ' '.repeat(text.length - i);
+				break;
+			}
+			out += ' '.repeat(end + open.length - i);
+			i = end + open.length;
+			open = null;
+			continue;
+		}
+		const m = BLOCK_OPEN.exec(text.slice(i));
+		if (!m) {
+			out += text.slice(i);
+			break;
+		}
+		const after = i + m.index + m[0].length;
+		const closer: Exclude<OpenBlock, null> = m[0] === '<!--' ? '-->' : m[0] === '$$' ? '$$' : '%%';
+		// An escaped dollar opens nothing, and a marker without a closing marker is plain text.
+		if ((m[0] === '$$' && text[i + m.index - 1] === '\\') || (text.indexOf(closer, after) < 0 && !closesLater(closer, after))) {
+			out += text.slice(i, after);
+			i = after;
+			continue;
+		}
+		out += text.slice(i, i + m.index) + ' '.repeat(m[0].length);
+		i = after;
+		open = closer;
+	}
+	return { masked: maskInlineMath(out), open };
+}
+
 export interface InlineFootnote {
 	start: number;
 	end: number;
@@ -63,9 +142,11 @@ export function inlineId(line: number, ch: number): string {
 	return `inline ${line}:${ch}`;
 }
 
-/** Reads inline footnotes on one line. Balanced brackets and escaped brackets stay in the text. */
-export function inlineFootnotes(line: string): InlineFootnote[] {
-	const masked = line.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
+/**
+ * Reads inline footnotes on one line. Balanced brackets and escaped brackets stay in the text. Footnotes in code spans,
+ * math and comments do not count. masked is the line from maskLine when the caller knows the open block.
+ */
+export function inlineFootnotes(line: string, masked = maskLine(line).masked): InlineFootnote[] {
 	// One pass finds the end of each balanced bracket, so a long line with open brackets stays linear.
 	const close = new Map<number, number>();
 	const open: number[] = [];
@@ -101,10 +182,10 @@ export function inlineLabels(line: string, first = 1): string {
 	return out + line.slice(last);
 }
 
-/** Splits text into plain parts and footnote references. A reference inside an inline code span, or after a backslash, stays plain. */
-export function splitRefs(line: string): Part[] {
-	let masked = line.replace(CODE_SPAN, (m) => ' '.repeat(m.length));
-	for (const note of inlineFootnotes(line)) masked = masked.slice(0, note.start) + ' '.repeat(note.end - note.start) + masked.slice(note.end);
+/** Splits text into plain parts and footnote references. A reference in code, math, a comment or after a backslash stays plain. */
+export function splitRefs(line: string, mask = maskLine(line).masked): Part[] {
+	let masked = mask;
+	for (const note of inlineFootnotes(line, mask)) masked = masked.slice(0, note.start) + ' '.repeat(note.end - note.start) + masked.slice(note.end);
 	const parts: Part[] = [];
 	let last = 0;
 	for (const m of masked.matchAll(new RegExp(`\\[\\^(${ID})\\](?!:)`, 'g'))) {
@@ -311,10 +392,10 @@ function calloutLines(lines: string[]): { callout: Set<number>; quote: Set<numbe
 }
 
 /** Named references with their original source columns, also used for definition text. */
-function namedRefs(text: string, line: number, context: Context, offset = 0): RefInfo[] {
+function namedRefs(text: string, line: number, context: Context, offset = 0, masked?: string): RefInfo[] {
 	const refs: RefInfo[] = [];
 	let ch = offset;
-	for (const part of splitRefs(text)) {
+	for (const part of splitRefs(text, masked)) {
 		if ('text' in part) ch += part.text.length;
 		else {
 			refs.push({ id: part.id, line, ch, context });
@@ -346,15 +427,27 @@ export function scanFootnotes(text: string): FootnoteScan {
 	const { callout, quote } = calloutLines(lines);
 	const refs: RefInfo[] = [];
 	const defs: DefInfo[] = [];
+	const defLines = new Set<number>();
 	let fenced: string | null = null;
+	let block: OpenBlock = null;
+	// A comment or math block that opens on one line must close later in the note, else its marker is plain text.
+	const starts = lineStarts(text);
+	const lastAt = { '%%': text.lastIndexOf('%%'), $$: text.lastIndexOf('$$'), '-->': text.lastIndexOf('-->') };
+	let lineAt = 0;
+	const closesLater = (closer: Exclude<OpenBlock, null>, at: number): boolean => lastAt[closer] >= lineAt + at;
 	for (let i = start; i < lines.length; i++) {
+		lineAt = starts[i] ?? 0;
 		const line = lines[i] ?? '';
 		const previousFence: string | null = fenced;
-		fenced = definitionFence(line.replace(/^(?:\s*>)+ ?/, ''), fenced);
+		if (!block) fenced = definitionFence(line.replace(/^(?:\s*>)+ ?/, ''), fenced);
 		if (fenced !== previousFence) continue;
 		if (fenced) continue;
-		const def = DEF_LINE.exec(line);
+		const inBlock = block !== null;
+		const mask = maskLine(line, block, closesLater);
+		block = mask.open;
+		const def = inBlock ? null : DEF_LINE.exec(line);
 		if (def) {
+			defLines.add(i);
 			let body = def[2] ?? '';
 			const label = i;
 			const at = line.length - body.length;
@@ -362,6 +455,7 @@ export function scanFootnotes(text: string): FootnoteScan {
 			if (!bodyFence) refs.push(...namedRefs(body, i, 'body', at));
 			while (i + 1 < lines.length && (/^(?: {2,}|\t)\S/.test(lines[i + 1] ?? '') || (bodyFence && !lines[i + 1]?.trim()))) {
 				const continuation = lines[++i] ?? '';
+				defLines.add(i);
 				body += ` ${continuation.trim()}`;
 				const previousFence = bodyFence;
 				bodyFence = definitionFence(continuation, bodyFence);
@@ -372,18 +466,18 @@ export function scanFootnotes(text: string): FootnoteScan {
 		}
 		const context: Context = table.has(i) ? 'table' : callout.has(i) ? 'callout' : quote.has(i) ? 'quote' : 'body';
 		const lineRefs: RefInfo[] = [];
-		for (const note of inlineFootnotes(line)) {
+		for (const note of inlineFootnotes(line, mask.masked)) {
 			const id = inlineId(i, note.start);
 			lineRefs.push({ id, line: i, ch: note.start, context });
 			defs.push({ id, line: i, ch: note.start, at: note.start + 2, text: note.text });
 		}
-		lineRefs.push(...namedRefs(line, i, context));
+		lineRefs.push(...namedRefs(line, i, context, 0, mask.masked));
 		refs.push(...lineRefs.sort((a, b) => a.ch - b.ch));
 	}
-	return summarize(refs, defs);
+	return summarize(refs, defs, defLines);
 }
 
-function summarize(refs: RefInfo[], defs: DefInfo[]): FootnoteScan {
+function summarize(refs: RefInfo[], defs: DefInfo[], defLines: Set<number>): FootnoteScan {
 	const defined = new Set(defs.map((d) => d.id));
 	const referenced = new Set(refs.map((r) => r.id));
 	const numbers: Record<string, number> = Object.create(null) as Record<string, number>;
@@ -395,7 +489,100 @@ function summarize(refs: RefInfo[], defs: DefInfo[]): FootnoteScan {
 		numbers,
 		missing: [...referenced].filter((id) => !defined.has(id)),
 		unused: [...defined].filter((id) => !referenced.has(id)),
+		defLines,
 	};
+}
+
+/** A footnote in a paragraph, list item, task or blockquote that Live Preview can show as a number. */
+export interface InlineMark {
+	/** The inline id ("inline line:ch") or the named id. */
+	id: string;
+	kind: 'inline' | 'named';
+	/** Offset of the "^" of "^[" or the "[" of "[^", in the note text. */
+	from: number;
+	/** Offset after the closing "]". */
+	to: number;
+	/** Offset of the first character of the inline text. For a named reference, from. */
+	textFrom: number;
+	/** The inline text. Empty for a named reference. */
+	text: string;
+	/** The number from the shared counter of the note, or null for a named reference without a definition. */
+	number: number | null;
+}
+
+/** Offset of the start of each line. */
+function lineStarts(text: string): number[] {
+	const starts = [0];
+	for (let i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) starts.push(i + 1);
+	return starts;
+}
+
+/**
+ * Finds the inline footnotes ("^[text]") in paragraphs, list items, tasks and blockquotes, with their place in the note
+ * and their number. Callouts and tables are left out: their widgets get links from the post processor. With named
+ * true, named references ("[^id]") in the same lines are added. Footnote definitions, code, math, comments, front
+ * matter and escaped carets give nothing. The numbers come from the one counter of scanFootnotes.
+ */
+export function locateInline(text: string, named = false, scan: FootnoteScan = scanFootnotes(text)): InlineMark[] {
+	const starts = lineStarts(text);
+	const inline = new Map<string, DefInfo>();
+	for (const def of scan.defs) if (def.ch !== undefined) inline.set(def.id, def);
+	const out: InlineMark[] = [];
+	for (const ref of scan.refs) {
+		if ((ref.context !== 'body' && ref.context !== 'quote') || scan.defLines.has(ref.line)) continue;
+		const from = (starts[ref.line] ?? 0) + ref.ch;
+		const number = scan.numbers[ref.id] ?? null;
+		const def = inline.get(ref.id);
+		if (def) out.push({ id: ref.id, kind: 'inline', from, to: from + def.text.length + 3, textFrom: from + 2, text: def.text, number });
+		else if (named && !ref.id.startsWith('inline ')) out.push({ id: ref.id, kind: 'named', from, to: from + ref.id.length + 3, textFrom: from, text: '', number });
+	}
+	return out;
+}
+
+/** A change to the note text, by offsets in the text before the change. */
+export interface TextChange {
+	from: number;
+	to: number;
+	insert: string;
+}
+
+/**
+ * Pro: the changes that turn one inline footnote into a named one. The footnote is the one that holds the cursor
+ * offset, or else the nearest one on the cursor line. "^[text]" becomes "[^n]" with the lowest free number n, and
+ * "[^n]: text" goes at the end of the note. Returns null when the cursor line has no inline footnote.
+ */
+export function convertInline(text: string, offset: number, scan: FootnoteScan = scanFootnotes(text)): { id: string; changes: TextChange[] } | null {
+	const starts = lineStarts(text);
+	let line = 0;
+	while (line + 1 < starts.length && (starts[line + 1] ?? 0) <= offset) line++;
+	const lineStart = starts[line] ?? 0;
+	const notes = scan.defs.filter((d) => d.ch !== undefined && d.line === line).map((d) => ({ def: d, from: lineStart + (d.ch ?? 0), to: lineStart + (d.ch ?? 0) + d.text.length + 3 }));
+	if (notes.length === 0) return null;
+	const pick = notes.find((n) => n.from <= offset && offset <= n.to) ?? notes.find((n) => n.from >= offset) ?? notes[notes.length - 1];
+	if (!pick) return null;
+	const used = new Set([...scan.refs.map((r) => r.id), ...scan.defs.map((d) => d.id)]);
+	let n = 1;
+	while (used.has(String(n))) n++;
+	const id = String(n);
+	const lines = text.split('\n');
+	let last = lines.length - 1;
+	while (last > 0 && !(lines[last] ?? '').trim()) last--;
+	const afterDef = DEF_LINE.test(lines[last] ?? '');
+	const prefix = text === '' || text.endsWith('\n\n') ? '' : text.endsWith('\n') ? (afterDef ? '' : '\n') : afterDef ? '\n' : '\n\n';
+	return {
+		id,
+		changes: [
+			{ from: pick.from, to: pick.to, insert: `[^${id}]` },
+			{ from: text.length, to: text.length, insert: `${prefix}[^${id}]: ${pick.def.text}${text.endsWith('\n') ? '\n' : ''}` },
+		],
+	};
+}
+
+/** Applies changes (offsets in the old text, in any order, not overlapping) to a text. For tests and previews. */
+export function applyChanges(text: string, changes: TextChange[]): string {
+	let out = text;
+	for (const c of [...changes].sort((a, b) => b.from - a.from)) out = out.slice(0, c.from) + c.insert + out.slice(c.to);
+	return out;
 }
 
 /** One short line for a number of footnote problems, for a Notice. */

@@ -2,7 +2,7 @@
  "slug": "callout-table-footnotes",
  "module": "callout-table-footnotes/src/footnotes",
  "function": "scanFootnotes",
- "note": "args = [note text]; expected = numbers (id to number, in order of first reference, only ids with a definition), missing (referenced, no definition), unused (defined, never referenced), refs as [id, zero based line, zero based column of \"[\", context body|callout|quote|table], defs as [id, zero based line, definition text]. References in code spans, code blocks, front matter and after a backslash do not count. Reviewed by hand against each text. Inline footnotes on one line use an id with their line and column. Inline and named footnotes share one number order.",
+ "note": "args = [note text]; expected = numbers (id to number, in order of first reference, only ids with a definition), missing (referenced, no definition), unused (defined, never referenced), refs as [id, zero based line, zero based column of \"[\", context body|callout|quote|table], defs as [id, zero based line, definition text]. References in code spans, code blocks, front matter and after a backslash do not count. Reviewed by hand against each text. Inline footnotes on one line use an id with their line and column. Inline and named footnotes share one number order. Cases with function locateInline: args = [note text, named], expected = the marks of paragraph, list, task and blockquote footnotes as {id, kind, from, to, textFrom, text, number}; numbers come from the scanFootnotes counter, so callout and table footnotes count too. Code, math, comments, front matter, definitions, escaped carets and footnotes across a line break give no mark. Cases with function locateInlineLarge: the note is the lines of args[0] repeated args[1] times and joined with a newline; expected gives the mark count, the first and last number and the time limit in ms. A comment or math marker (%%, $$, <!--) whose closing marker does not come later in the note is plain text.",
  "cases": [
   {
    "name": "one body reference",
@@ -954,6 +954,324 @@
       "Shown."
      ]
     ]
+   }
+  },
+  {
+   "name": "an unclosed %% in prose hides nothing",
+   "args": [
+    "Sale 50%% off today.\n\n> [!note] Box\n> Claim^[c] and[^n].\n\n| H | I |\n| - | - |\n| Cell[^n] | x |\n\n[^n]: Named."
+   ],
+   "expected": {
+    "numbers": {
+     "inline 3:7": 1,
+     "n": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 3:7",
+      3,
+      7,
+      "callout"
+     ],
+     [
+      "n",
+      3,
+      15,
+      "callout"
+     ],
+     [
+      "n",
+      7,
+      6,
+      "table"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 3:7",
+      3,
+      "c"
+     ],
+     [
+      "n",
+      9,
+      "Named."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "an unclosed $$ in prose hides nothing",
+   "args": [
+    "Cost $$5 each.\n\n> [!note] Box\n> Claim^[c] and[^n].\n\n| H | I |\n| - | - |\n| Cell[^n] | x |\n\n[^n]: Named."
+   ],
+   "expected": {
+    "numbers": {
+     "inline 3:7": 1,
+     "n": 2
+    },
+    "missing": [],
+    "unused": [],
+    "refs": [
+     [
+      "inline 3:7",
+      3,
+      7,
+      "callout"
+     ],
+     [
+      "n",
+      3,
+      15,
+      "callout"
+     ],
+     [
+      "n",
+      7,
+      6,
+      "table"
+     ]
+    ],
+    "defs": [
+     [
+      "inline 3:7",
+      3,
+      "c"
+     ],
+     [
+      "n",
+      9,
+      "Named."
+     ]
+    ]
+   }
+  },
+  {
+   "name": "paragraph inline footnotes get 1 and 2",
+   "function": "locateInline",
+   "args": [
+    "A^[one] and B^[two].",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 0:1",
+     "kind": "inline",
+     "from": 1,
+     "to": 7,
+     "textFrom": 3,
+     "text": "one",
+     "number": 1
+    },
+    {
+     "id": "inline 0:13",
+     "kind": "inline",
+     "from": 13,
+     "to": 19,
+     "textFrom": 15,
+     "text": "two",
+     "number": 2
+    }
+   ]
+  },
+  {
+   "name": "named reference counts before an inline footnote",
+   "function": "locateInline",
+   "args": [
+    "Named[^x] then inline^[y]\n\n[^x]: def",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 0:21",
+     "kind": "inline",
+     "from": 21,
+     "to": 25,
+     "textFrom": 23,
+     "text": "y",
+     "number": 2
+    }
+   ]
+  },
+  {
+   "name": "named reference in a paragraph shows as a number when named is on",
+   "function": "locateInline",
+   "args": [
+    "Named[^x] then inline^[y]\n\n[^x]: def",
+    true
+   ],
+   "expected": [
+    {
+     "id": "x",
+     "kind": "named",
+     "from": 5,
+     "to": 9,
+     "textFrom": 5,
+     "text": "",
+     "number": 1
+    },
+    {
+     "id": "inline 0:21",
+     "kind": "inline",
+     "from": 21,
+     "to": 25,
+     "textFrom": 23,
+     "text": "y",
+     "number": 2
+    }
+   ]
+  },
+  {
+   "name": "callout footnote above a paragraph footnote keeps one order",
+   "function": "locateInline",
+   "args": [
+    "> [!note] Source\n> Callout^[c]\n\nParagraph^[p].",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 3:9",
+     "kind": "inline",
+     "from": 41,
+     "to": 45,
+     "textFrom": 43,
+     "text": "p",
+     "number": 2
+    }
+   ]
+  },
+  {
+   "name": "code span, escaped caret and code fence give no mark",
+   "function": "locateInline",
+   "args": [
+    "`code ^[no]` and \\^[no]\n\n```\nfenced^[no]\n```",
+    false
+   ],
+   "expected": []
+  },
+  {
+   "name": "nested link and code stay in the inline text",
+   "function": "locateInline",
+   "args": [
+    "Text^[see [[Note]] and `x`].",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 0:4",
+     "kind": "inline",
+     "from": 4,
+     "to": 27,
+     "textFrom": 6,
+     "text": "see [[Note]] and `x`",
+     "number": 1
+    }
+   ]
+  },
+  {
+   "name": "a footnote across a line break gives no mark",
+   "function": "locateInline",
+   "args": [
+    "Start^[crosses\nthe break] end.",
+    false
+   ],
+   "expected": []
+  },
+  {
+   "name": "math and comments give no mark and no number",
+   "function": "locateInline",
+   "args": [
+    "$x^[m]$ and %%^[c]%% then B^[real].\n$$\n^[block]\n$$\n%%\n^[hidden]\n%%\n<!-- ^[html] -->",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 0:27",
+     "kind": "inline",
+     "from": 27,
+     "to": 34,
+     "textFrom": 29,
+     "text": "real",
+     "number": 1
+    }
+   ]
+  },
+  {
+   "name": "list items, tasks and blockquotes give marks",
+   "function": "locateInline",
+   "args": [
+    "- Item^[a]\n- [ ] Task^[b]\n> Quote^[c]",
+    false
+   ],
+   "expected": [
+    {
+     "id": "inline 0:6",
+     "kind": "inline",
+     "from": 6,
+     "to": 10,
+     "textFrom": 8,
+     "text": "a",
+     "number": 1
+    },
+    {
+     "id": "inline 1:10",
+     "kind": "inline",
+     "from": 21,
+     "to": 25,
+     "textFrom": 23,
+     "text": "b",
+     "number": 2
+    },
+    {
+     "id": "inline 2:7",
+     "kind": "inline",
+     "from": 33,
+     "to": 37,
+     "textFrom": 35,
+     "text": "c",
+     "number": 3
+    }
+   ]
+  },
+  {
+   "name": "definition lines and front matter give no mark",
+   "function": "locateInline",
+   "args": [
+    "---\nkey: ^[meta]\n---\nBody[^d]\n\n[^d]: Text^[inner]\n  more^[cont]",
+    true
+   ],
+   "expected": [
+    {
+     "id": "d",
+     "kind": "named",
+     "from": 25,
+     "to": 29,
+     "textFrom": 25,
+     "text": "",
+     "number": 1
+    }
+   ]
+  },
+  {
+   "name": "5,000 lines with 1,000 inline footnotes",
+   "function": "locateInlineLarge",
+   "args": [
+    [
+     "Fact^[n] text.",
+     "Plain line.",
+     "- Item line.",
+     "> Quote line.",
+     ""
+    ],
+    1000
+   ],
+   "expected": {
+    "count": 1000,
+    "first": 1,
+    "last": 1000,
+    "maxMs": 100
    }
   }
  ]

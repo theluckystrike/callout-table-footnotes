@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { scanFootnotes } from '../src/footnotes';
+import { locateInline, scanFootnotes } from '../src/footnotes';
 
 const dir = 'docs/sample-notes';
 const read = (name: string) => readFileSync(`${dir}/${name}`, 'utf8');
@@ -19,5 +19,11 @@ describe('sample notes', () => {
 		const s = scanFootnotes(read('Review checklist.md'));
 		expect(s.missing).toEqual(['risk']);
 		expect(s.unused).toEqual(['old']);
+	});
+	it('Paragraph footnotes: five inline footnotes in a paragraph, a list, a task and a quote, numbered 1 to 5', () => {
+		const marks = locateInline(read('Paragraph footnotes.md'));
+		expect(marks.map((m) => m.number)).toEqual([1, 2, 3, 4, 5]);
+		expect(marks[0]?.text).toBe('Opening date from the city archive, **box 14**.');
+		expect(scanFootnotes(read('Paragraph footnotes.md')).numbers.steel).toBe(6);
 	});
 });

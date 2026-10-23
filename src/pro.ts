@@ -15,7 +15,7 @@ export const SPONSORS: SponsorsConfig = {
 };
 
 export const PRO_UI = {
-	proSummary: 'Pro adds a footnote panel for the note, a way back from a definition to its reference, and warnings for unused and missing footnotes.',
+	proSummary: 'Pro adds a footnote panel for the note, a command that turns an inline footnote into a named one, a way back from a definition to its reference, and warnings for unused and missing footnotes.',
 	priceText: 'Sponsor $5 a month, or $15 once. When you have paid $15 in total, Pro stays on.',
 };
 

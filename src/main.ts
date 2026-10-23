@@ -5,7 +5,7 @@ import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
 import { CalloutTableFootnotesSettingTab, DEFAULT_SETTINGS, normalizeSettings, type CalloutTableFootnotesSettings } from './settings';
 import { FootnotePanel } from './panel';
 import { FootnoteWidgets } from './widgets';
-import { defIdOnLine, describeProblems, firstRef, panelItems, panelTarget, scanFootnotes } from './footnotes';
+import { convertInline, defIdOnLine, describeProblems, firstRef, panelItems, panelTarget, scanFootnotes } from './footnotes';
 import { setupHello } from './hello/index';
 import WHATS_NEW from './whats-new.json';
 
@@ -45,6 +45,7 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 
 		this.addProCommand('show-footnotes', 'Show the footnotes of this note', 'The footnote panel', (editor) => this.showPanel(editor));
 		this.addProCommand('back-to-reference', 'Go from a footnote definition to its reference', 'The way back from a definition', (editor, ctx) => this.goBack(editor, ctx.file?.path ?? null));
+		this.addProCommand('convert-inline-footnote', 'Convert inline footnote to named footnote', 'The conversion of inline footnotes', (editor) => this.convertInline(editor));
 		this.addProCommand('check-footnotes', 'Check for unused and missing footnotes', 'The footnote check', (editor) => {
 			new Notice(describeProblems(scanFootnotes(editor.getValue())));
 		});
@@ -86,6 +87,17 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 			editor.scrollIntoView({ from: { line: target.line, ch: 0 }, to: { line: target.line, ch: 0 } }, true);
 			editor.focus();
 		}).open();
+	}
+
+	/** Turns the inline footnote at the cursor into a named footnote with its definition at the end. One undo step. */
+	private convertInline(editor: Editor): void {
+		const plan = convertInline(editor.getValue(), editor.posToOffset(editor.getCursor()));
+		if (!plan) {
+			new Notice('Place the caret on a line that has an inline footnote.');
+			return;
+		}
+		editor.transaction({ changes: plan.changes.map((c) => ({ from: editor.offsetToPos(c.from), to: editor.offsetToPos(c.to), text: c.insert })) });
+		new Notice(`Footnote [^${plan.id}] added at the end of the note.`);
 	}
 
 	/** From a definition line: to the first reference. Elsewhere: back to where the last click on a reference in this note started. */

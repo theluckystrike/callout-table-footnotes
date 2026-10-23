@@ -91,5 +91,36 @@
 		"note": "Hard inputs.md",
 		"eval": "(async () => { const l=app.workspace.getLeaf(false); const s=l.getViewState(); await l.setViewState({...s,state:{...s.state,mode:'source',source:false}}); l.view.editor.setCursor({line:0,ch:0}); await new Promise(r=>setTimeout(r,1200)); const refs=Array.from(l.view.containerEl.querySelectorAll('.footnote-live-link')).map(x=>x.textContent); if(refs.join(',')!=='1,2') throw new Error('Wrong nested or code labels '+refs); if(l.view.containerEl.querySelector('.callout-content')?.textContent.includes('__')) throw new Error('Label punctuation remains'); return 'hard inputs passed'; })()",
 		"wait": 700
+	},
+	{
+		"feature": "paragraph-footnotes",
+		"caption": "Inline footnotes in a paragraph, a list and a quote show as numbers. Hover shows the text, a click opens it.",
+		"frames": [
+			{
+				"note": "Paragraph footnotes.md",
+				"eval": "(async () => { const l=app.workspace.getLeaf(false); const s=l.getViewState(); await l.setViewState({...s,state:{...s.state,mode:'source',source:false}}); l.view.editor.setCursor({line:0,ch:0}); await new Promise(r=>setTimeout(r,1200)); const labels=Array.from(app.workspace.getLeaf(false).view.containerEl.querySelectorAll('.cm-line .footnote-live-link')).map(e=>e.textContent).join(','); if(labels!=='1,2,3,4,5') throw new Error('Wrong paragraph numbers: '+labels); return labels; })()",
+				"wait": 600,
+				"hold": 1600,
+				"zoom": 1.2
+			},
+			{
+				"eval": "(async () => { Array.from(app.workspace.getLeaf(false).view.containerEl.querySelectorAll('.cm-line .footnote-live-link'))[0].dispatchEvent(new MouseEvent('mouseenter')); await new Promise(r=>setTimeout(r,900)); const pop=document.querySelector('.footnote-live-popover.is-shown'); if(!pop?.textContent.includes('Opening date')) throw new Error('Paragraph preview is missing'); return 'ok'; })()",
+				"wait": 300,
+				"hold": 1800,
+				"zoom": 1.2
+			},
+			{
+				"eval": "(async () => { app.plugins.plugins['callout-table-footnotes'].widgets.hide(); Array.from(app.workspace.getLeaf(false).view.containerEl.querySelectorAll('.cm-line .footnote-live-link'))[1].click(); await new Promise(r=>setTimeout(r,500)); const c=app.workspace.getLeaf(false).view.editor.getCursor(); if(c.line!==2) throw new Error('Click did not open the footnote text'); return 'ok'; })()",
+				"wait": 300,
+				"hold": 2000,
+				"zoom": 1.2
+			},
+			{
+				"eval": "(async () => { app.workspace.getLeaf(false).view.editor.setCursor({line:0,ch:0}); await new Promise(r=>setTimeout(r,700)); return 'ok'; })()",
+				"wait": 300,
+				"hold": 1400,
+				"zoom": 1.2
+			}
+		]
 	}
 ]
