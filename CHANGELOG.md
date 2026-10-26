@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.3.1
+
+### Patch Changes
+
+- The Footnotes in Callouts and Tables notice for a Pro feature now has a Sponsor on GitHub button.
+
 ## 1.3.0
 
 ### Minor Changes

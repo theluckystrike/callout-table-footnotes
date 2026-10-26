@@ -1,7 +1,7 @@
 import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin } from 'obsidian';
 import type { SponsorsManager } from './license/index';
 import { createGitHubSponsors } from './license/github-obsidian';
-import { SPONSORS, bindPro, isPro, onProChange, resetPro } from './pro';
+import { SPONSORS, bindPro, isPro, onProChange, resetPro, proNotice } from './pro';
 import { CalloutTableFootnotesSettingTab, DEFAULT_SETTINGS, normalizeSettings, type CalloutTableFootnotesSettings } from './settings';
 import { FootnotePanel } from './panel';
 import { FootnoteWidgets } from './widgets';
@@ -70,7 +70,7 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 			name,
 			editorCallback: (editor, ctx) => {
 				if (!isPro()) {
-					new Notice(`${feature} is a pro feature. Sponsor on GitHub, then sign in from the plugin settings.`);
+					proNotice(`${feature} is a pro feature.`);
 					return;
 				}
 				run(editor, ctx);
