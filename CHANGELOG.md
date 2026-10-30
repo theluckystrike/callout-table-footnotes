@@ -1,5 +1,11 @@
 # callout-table-footnotes
 
+## 1.3.2
+
+### Patch Changes
+
+- The Sponsor on GitHub button of Footnotes in Callouts and Tables now opens the GitHub Sponsors one-time tab.
+
 ## 1.3.1
 
 ### Patch Changes

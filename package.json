@@ -1,6 +1,6 @@
 {
 	"name": "callout-table-footnotes",
-	"version": "1.3.1",
+	"version": "1.3.2",
 	"private": true,
 	"description": "Shows footnote references as numbered links inside callouts and table cells in Live Preview, with a hover preview and a jump to the definition.",
 	"main": "main.js",
