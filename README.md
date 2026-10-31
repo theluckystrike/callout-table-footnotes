@@ -2,6 +2,24 @@
 
 Footnotes in Callouts and Tables turns references in callouts and table cells into numbered links, and inline footnotes in paragraphs into small numbers. Hover to read a definition or click to go to it. Live Preview does not do this by itself.
 
+## Quick start
+
+Paste this into a note:
+
+```markdown
+> [!note] Sales
+> Sales went up in March.[^1]
+
+| Region | Sales |
+| --- | --- |
+| North[^2] | 120 |
+
+[^1]: From the March report.
+[^2]: Without the online shop.
+```
+
+Open a note in Live Preview, and the links show. Rest the pointer on a link to read the definition. Click a link to go to the definition.
+
 ## Features
 
 ### Numbered links in callouts
@@ -10,7 +28,7 @@ Without the plugin, Live Preview shows a label such as `[^2]` in a callout as pl
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/without-plugin.png" alt="Live Preview without the plugin: the references in a callout and in a table cell show as the plain text percent2, sites3 and log4" width="720">
 
-Free: footnote links in callouts, tables and paragraphs, previews, jumps. Pro: a panel, conversion, return links, warnings. $15 one time or $5 a month: [Sponsor](https://github.com/sponsors/theluckystrike?metadata_source=callout-table-footnotes) or [$15 one-time offer](https://github.com/sponsors/theluckystrike/sponsorships?tier_id=666162&metadata_source=callout-table-footnotes).
+Free: footnote links in callouts, tables and paragraphs, previews, jumps. Pro: a panel, conversion, return links, warnings. $15 one time or $5 a month: [Sponsor](https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes) or [$15 one-time offer](https://github.com/sponsors/theluckystrike/sponsorships?tier_id=666162&metadata_source=callout-table-footnotes).
 
 With the plugin, the same text shows a raised number that you can click, numbered by first use. Reading view can differ. A reference that has no definition keeps the id that you typed.
 
@@ -93,7 +111,7 @@ The settings tab also has the Pro section: sign in with GitHub, the status line 
 
 To sign in and enable Pro:
 
-1. Sponsor via [GitHub Sponsors](https://github.com/sponsors/theluckystrike?metadata_source=callout-table-footnotes). A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply.
+1. Sponsor via [GitHub Sponsors](https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes). A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply.
 2. In Obsidian, open the settings of Footnotes in Callouts and Tables and select "Sign in with GitHub".
 3. The plugin copies a code and opens github.com/login/device. Paste the code there and approve.
 
@@ -125,7 +143,7 @@ Footnote Shortcut and Tidy Footnotes help you write and tidy footnotes. This plu
 
 The core features are free. Pro features need a GitHub Sponsors sponsorship of theluckystrike: $5 a month or more, or $15 once. A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply. Your notes stay readable and editable with or without Pro.
 
-GitHub handles the payment. Sponsor at https://github.com/sponsors/theluckystrike. You need no account for the free features. Pro needs the GitHub account that sponsors.
+GitHub handles the payment. Sponsor at https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes. You need no account for the free features. Pro needs the GitHub account that sponsors.
 
 Until you select "Sign in with GitHub" in the settings, Footnotes in Callouts and Tables makes no network requests. Sign in uses the GitHub device flow. Footnotes in Callouts and Tables sends its public client ID and the scope `read:user` to `https://github.com/login/device/code` and shows you a code. While you enter the code at https://github.com/login/device, it asks `https://github.com/login/oauth/access_token` every few seconds to check the sign-in status. The scope permits profile reads only. GitHub needs this access to show the sponsorship tier. It grants no repository scope and no write access.
 
