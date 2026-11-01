@@ -1,5 +1,5 @@
 import { PluginSettingTab, type SettingDefinitionItem } from 'obsidian';
-import { sponsorsSettingItems } from './license/github-obsidian';
+import { sponsorsSettingItemsWithWhatPro } from './license/github-obsidian';
 import { PRO_UI, isPro } from './pro';
 import type CalloutTableFootnotesPlugin from './main';
 import { helloSettingItems } from './hello/settings';
@@ -56,7 +56,7 @@ export class CalloutTableFootnotesSettingTab extends PluginSettingTab {
 
 	productSettingDefinitions(): SettingDefinitionItem[] {
 		return [
-			...(this.plugin.pro ? sponsorsSettingItems(this.plugin.pro, PRO_UI) : []),
+			...(this.plugin.pro ? sponsorsSettingItemsWithWhatPro(this.plugin.pro, PRO_UI, () => this.plugin.openWhatPro()) : []),
 			{
 				name: 'Show numbers',
 				desc: 'Show each reference as its number, in the order of first use. Turn off to show the id that you typed, such as [^source].',

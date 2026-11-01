@@ -1,7 +1,8 @@
 import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin } from 'obsidian';
 import type { SponsorsManager } from './license/index';
-import { createGitHubSponsors } from './license/github-obsidian';
-import { SPONSORS, bindPro, isPro, onProChange, resetPro, proNotice } from './pro';
+import { WHAT_PRO_TITLE, createGitHubSponsors } from './license/github-obsidian';
+import { SPONSORS, bindPro, bindWhatPro, isPro, onProChange, resetPro, proNotice } from './pro';
+import { openWhatPro } from './what-pro';
 import { CalloutTableFootnotesSettingTab, DEFAULT_SETTINGS, normalizeSettings, type CalloutTableFootnotesSettings } from './settings';
 import { FootnotePanel } from './panel';
 import { FootnoteWidgets } from './widgets';
@@ -30,6 +31,7 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 		pro.init();
 		this.pro = pro;
 		bindPro(pro);
+		bindWhatPro(() => this.openWhatPro());
 		this.register(pro.onChange(() => this.settingTab?.update()));
 		// Pro only: a reference without a definition shows in red. The class on body works for links that are already drawn.
 		const syncPro = (): void => activeDocument.body.toggleClass(PRO_CLASS, isPro());
@@ -43,6 +45,8 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 		this.registerEditorExtension(widgets.extension());
 		this.registerMarkdownPostProcessor((el) => widgets.schedule(el));
 
+		// Opens only on this command, the settings button or the link in the Pro notice. Never at startup.
+		this.addCommand({ id: 'what-pro-adds', name: WHAT_PRO_TITLE, callback: () => this.openWhatPro() });
 		this.addProCommand('show-footnotes', 'Show the footnotes of this note', 'The footnote panel', (editor) => this.showPanel(editor));
 		this.addProCommand('back-to-reference', 'Go from a footnote definition to its reference', 'The way back from a definition', (editor, ctx) => this.goBack(editor, ctx.file?.path ?? null));
 		this.addProCommand('convert-inline-footnote', 'Convert inline footnote to named footnote', 'The conversion of inline footnotes', (editor) => this.convertInline(editor));
@@ -61,6 +65,11 @@ export default class CalloutTableFootnotesPlugin extends Plugin {
 		this.widgets?.hide();
 		this.widgets = null;
 		resetPro();
+	}
+
+	/** The "What Pro adds" window: each Pro feature with a demo on a sample note, the price and the sign in. */
+	openWhatPro(): void {
+		openWhatPro(this.app, this.pro, this.manifest.id, this.manifest.name);
 	}
 
 	/** A command that runs in an editor. Without Pro it shows a notice that names the feature. */

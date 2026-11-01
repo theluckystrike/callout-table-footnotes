@@ -28,7 +28,7 @@ Without the plugin, Live Preview shows a label such as `[^2]` in a callout as pl
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/without-plugin.png" alt="Live Preview without the plugin: the references in a callout and in a table cell show as the plain text percent2, sites3 and log4" width="720">
 
-Free: footnote links in callouts, tables and paragraphs, previews, jumps. Pro: a panel, conversion, return links, warnings. $15 one time or $5 a month: [Sponsor](https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes) or [$15 one-time offer](https://github.com/sponsors/theluckystrike/sponsorships?tier_id=666162&metadata_source=callout-table-footnotes).
+Pro costs $15 one time or $5 a month: [Sponsor](https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes) or [$15 one-time offer](https://github.com/sponsors/theluckystrike/sponsorships?tier_id=666162&metadata_source=callout-table-footnotes).
 
 With the plugin, the same text shows a raised number that you can click, numbered by first use. Reading view can differ. A reference that has no definition keeps the id that you typed.
 
@@ -66,13 +66,13 @@ A click on a link moves the cursor to the definition and scrolls to it. The defi
 
 ### Footnote panel (Pro)
 
-The command "Show the footnotes of this note" opens a searchable list of the footnotes in the note, also the ones in paragraphs. Each row shows the number, the definition, the reference count and where they are. Press Enter on a row to go to its definition. A footnote with no definition, or with no reference, shows a warning line. The command "Convert inline footnote to named footnote" moves the inline text at the cursor to a `[^n]:` definition at the end of the note. Undo restores it in one step.
+The command "Show the footnotes of this note" opens a searchable list of every footnote. Each row shows the reference count and where they are. A conversion of an inline footnote is one undo step.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/footnote-panel.png" alt="The footnote panel with four rows: two normal footnotes, one without a definition and one that is never used" width="720">
 
 ### Warnings for unused and missing footnotes (Pro)
 
-With Pro, a reference that has no definition shows in red with a dashed underline. The command "Check for unused and missing footnotes" shows one notice that names each one, for example `Footnotes: 1 without a definition ([^risk]); 1 never used ([^old]).` The command "Go from a footnote definition to its reference" moves the cursor from a definition line to the first reference, or back to the place where you last clicked a reference.
+The command "Check for unused and missing footnotes" shows one notice, for example `Footnotes: 1 without a definition ([^risk]); 1 never used ([^old]).` Away from a definition line, the command "Go from a footnote definition to its reference" goes back to the place where you last clicked a reference.
 
 <img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/warnings.png" alt="A callout and a table with one reference in red, and a notice that names the missing and the unused footnote" width="720">
 
@@ -105,9 +105,19 @@ After a minor or major update, this plugin opens one What's new tab in the backg
 | Hover preview | Shows the definition in a popup. |
 | Hover delay | Milliseconds to wait before the popup shows, from 0 to 2000. |
 
-The settings tab also has the Pro section: sign in with GitHub, the status line and Refresh.
-
 ## Pro
+
+The command "What Pro adds" shows each with a demo.
+
+<img src="https://raw.githubusercontent.com/theluckystrike/callout-table-footnotes/HEAD/docs/what-pro.png" alt="The What Pro adds window with a Try it demo" width="720">
+
+- A footnote panel lists each footnote of the note with its text and where it is used. Select a row to go to its definition.
+- A command changes an inline footnote into a named footnote and puts the definition at the end of the note.
+- A command moves the cursor from a footnote definition back to its first reference.
+- A command names each reference without a definition and each definition that no reference uses.
+- A reference without a definition shows in red with a dashed underline.
+
+Sponsor $5 a month, or $15 once. When you have paid $15 in total, Pro stays on.
 
 To sign in and enable Pro:
 
