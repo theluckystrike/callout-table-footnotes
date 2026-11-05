@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { definitionOf, inlineFootnotes, inlineId, inlineLabels, locateRefs, panelItems, panelTarget, scanFootnotes, sourceCells, splitRefs, widgetSource } from '../src/footnotes';
+import { GROWTH_LIMIT, growth } from './growth';
 
 // Inline source text stays in the note. Each position has its own id and number.
 describe('inline footnotes', () => {
@@ -49,11 +50,15 @@ describe('inline footnotes', () => {
 
 	it('reads a long line with many open brackets in linear time', () => {
 		const line = `${'^['.repeat(20000)}^[last]`;
-		const start = performance.now();
 		const notes = inlineFootnotes(line);
-		expect(performance.now() - start).toBeLessThan(20000);
 		expect(notes).toEqual([{ start: 40000, end: 40007, text: 'last' }]);
 		expect(inlineFootnotes('^[a ^[b] c')).toEqual([{ start: 4, end: 8, text: 'b' }]);
+		// Timing guard that holds on a slow shared CI runner (s1103 CIFIX): 10 times the brackets, about 10 times the time.
+		const g = growth((n) => {
+			const l = `${'^['.repeat(n)}^[last]`;
+			return () => inlineFootnotes(l);
+		}, 20000);
+		expect(g.ratio, g.text).toBeLessThan(GROWTH_LIMIT);
 	});
 
 	it('moves the panel cursor into inline text, to a named definition or to a missing reference', () => {

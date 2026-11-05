@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import vectors from './vectors/callout-table-footnotes.json';
 import { locateInline, scanFootnotes } from '../src/footnotes';
+import { GROWTH_LIMIT, growth } from './growth';
 
 interface Case {
 	name: string;
@@ -27,17 +28,21 @@ describe('golden vectors (packages/spec/vectors/callout-table-footnotes.json)', 
 			}
 			if (c.function === 'locateInlineLarge') {
 				const [block, times] = c.args as [string[], number];
-				const want = c.expected as { count: number; first: number; last: number; maxMs: number };
-				const text = Array.from({ length: times }, () => block.join('\n')).join('\n');
+				// expected.maxMs (a wall-clock limit) is not used: it failed on slow shared CI runners. The guard below divides
+				// the time at args[1] repeats by the time at a tenth of the repeats, both measured in this test (s1103 CIFIX).
+				const want = c.expected as { count: number; first: number; last: number };
+				const textOf = (t: number) => Array.from({ length: t }, () => block.join('\n')).join('\n');
+				const text = textOf(times);
 				expect(text.split('\n').length).toBe(block.length * times);
-				locateInline(text);
-				const start = performance.now();
 				const marks = locateInline(text);
-				const ms = performance.now() - start;
 				expect(marks.length).toBe(want.count);
 				expect(marks[0]?.number).toBe(want.first);
 				expect(marks[marks.length - 1]?.number).toBe(want.last);
-				expect(ms).toBeLessThan(want.maxMs);
+				const g = growth((t) => {
+					const big = textOf(t);
+					return () => locateInline(big);
+				}, times);
+				expect(g.ratio, g.text).toBeLessThan(GROWTH_LIMIT);
 				return;
 			}
 			const [text] = c.args as [string];

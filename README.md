@@ -131,11 +131,11 @@ If you sponsor after you sign in, select Refresh.
 
 ### Does it change my notes?
 
-No. The plugin reads the note text to find references and definitions. Only the Pro command "Convert inline footnote to named footnote" writes to the note, when you run it.
+No. The plugin reads the note text to find references and definitions. Only the Pro command "Convert inline footnote to named footnote" writes to the note.
 
 ### Does it work with named labels like `[^source]`?
 
-Yes. Labels such as `constructor` and `__proto__` get numbers too. Turn off "Show numbers" to show the label.
+Yes. Turn off "Show numbers" to show the label.
 
 ### Does it work in normal paragraphs?
 
@@ -152,6 +152,8 @@ Footnote Shortcut and Tidy Footnotes help you write and tidy footnotes. This plu
 ## Payment, account and network
 
 The core features are free. Pro features need a GitHub Sponsors sponsorship of theluckystrike: $5 a month or more, or $15 once. A total payment of $15 meets the payment requirement for Pro without further payment. Sign-in and the checks below still apply. Your notes stay readable and editable with or without Pro.
+
+[One payment turns on Pro in every NoteMods plugin](https://notemods.com/pro/).
 
 GitHub handles the payment. Sponsor at https://github.com/sponsors/theluckystrike?frequency=one-time&metadata_source=callout-table-footnotes. You need no account for the free features. Pro needs the GitHub account that sponsors.
 

@@ -6,6 +6,7 @@ import { App, Component, MarkdownRenderer, editorLivePreviewField } from 'obsidi
 import { DEFAULT_SETTINGS, normalizeSettings, type CalloutTableFootnotesSettings } from '../src/settings';
 import { FootnoteWidgets, REF_CLASS, RESCAN_DELAY_MS } from '../src/widgets';
 import { applyChanges, convertInline, locateInline, maskLine, panelItems, scanFootnotes } from '../src/footnotes';
+import { GROWTH_LIMIT, growth, pairedRatio } from './growth';
 
 // A small stream parser that gives the token classes of the Obsidian Markdown parser for footnotes, code spans and
 // math: "^[" is inline-footnote-start, the closing "]" is inline-footnote-end, "[^" is a footref link start.
@@ -102,17 +103,6 @@ function setup(doc: string, opts: { cursor?: number; livePreview?: boolean; sett
 /** The label of each number widget in the editor, in text order. */
 function numbers(view: EditorView): string[] {
 	return Array.from(view.contentDOM.querySelectorAll(`.${REF_CLASS}`)).map((e) => e.textContent ?? '');
-}
-
-/** The lowest time in ms of runs calls to fn. */
-function fastest(runs: number, fn: () => unknown): number {
-	let best = Infinity;
-	for (let i = 0; i < runs; i++) {
-		const start = performance.now();
-		fn();
-		best = Math.min(best, performance.now() - start);
-	}
-	return best;
 }
 
 describe('settings for paragraph footnotes (rules 1 and 10)', () => {
@@ -249,13 +239,22 @@ describe('number widgets in paragraphs (Live Preview)', () => {
 	});
 
 	it('case 7: draws the visible widgets of a 5,000-line note with 1,000 footnotes quickly', () => {
-		const doc = Array.from({ length: 1000 }, () => 'Fact^[n] text.\nPlain line.\n- Item line.\n> Quote line.\n').join('\n');
+		const docOf = (lines: number) => Array.from({ length: lines / 5 }, () => 'Fact^[n] text.\nPlain line.\n- Item line.\n> Quote line.\n').join('\n');
+		const doc = docOf(5000);
 		expect(doc.split('\n').length).toBe(5000);
-		// The fastest of 5 scans is the cost of the scan. One timed call also counts JIT warm-up and the pauses of a
-		// busy CI runner (the full turbo run tests about 130 packages at the same time). A slow scan is slow on every call.
 		const marks = locateInline(doc);
 		expect(marks.length).toBe(1000);
-		expect(fastest(5, () => locateInline(doc))).toBeLessThan(100);
+		// Timing guard that holds on a slow shared CI runner (s1103b ASSERT-A). It replaces a limit of 100 ms.
+		// 10 times the lines must give about 10 times the time, not about 100 times. On the agent Mac (2026-11-03,
+		// 5 runs) the growth was 10.1 to 10.9, and 8.2 to 14.3 under 6 busy loops. The limit is 25, not GROWTH_LIMIT 40:
+		// a scan of all definitions for each reference is quadratic with a small factor and gave 36.4 to 37.9 (40.7 to
+		// 81.7 under load), so 40 missed it. 25 is 1.7 times the highest clean ratio and 1.45 times below that plant.
+		const scan = growth((n) => {
+			const text = docOf(n);
+			return () => locateInline(text);
+		}, 50_000);
+		console.log(`perf locateInline: growth ${scan.ratio.toFixed(1)} (${scan.text})`);
+		expect(scan.ratio, scan.text).toBeLessThan(25);
 		const { view } = setup(doc, { cursor: doc.length });
 		expect(numbers(view).slice(0, 2)).toEqual(['1', '2']);
 	});
@@ -326,9 +325,13 @@ describe('maskLine', () => {
 
 	it('reads a long line with many dollars in linear time', () => {
 		const line = '$a '.repeat(50000);
-		const start = performance.now();
 		expect(maskLine(line).masked.length).toBe(line.length);
-		expect(performance.now() - start).toBeLessThan(2000);
+		// Timing guard that holds on a slow shared CI runner (s1103 CIFIX): 10 times the dollars, about 10 times the time.
+		const g = growth((n) => {
+			const l = '$a '.repeat(n);
+			return () => maskLine(l);
+		}, 10000);
+		expect(g.ratio, g.text).toBeLessThan(GROWTH_LIMIT);
 	});
 });
 
@@ -358,43 +361,37 @@ describe('an unclosed comment or math marker (review)', () => {
 });
 
 describe('typing cost in Live Preview (review)', () => {
-	const big = (footnotes: number): string => Array.from({ length: 20000 }, (_, i) => (footnotes && i % Math.floor(20000 / footnotes) === 0 ? `Line ${i} has a note^[n ${i}] here.` : `Line ${i} is plain text.`)).join('\n');
+	const note = (count: number, footnotes: number): string => Array.from({ length: count }, (_, i) => (footnotes && i % Math.floor(count / footnotes) === 0 ? `Line ${i} has a note^[n ${i}] here.` : `Line ${i} is plain text.`)).join('\n');
+	const big = (footnotes: number): string => note(20000, footnotes);
 
-	const median = (t: number[]): number => [...t].sort((a, b) => a - b)[Math.floor(t.length / 2)] ?? 0;
+	/** One key typed at the offset. Each call inserts one more character at the same place. */
+	const key = (view: EditorView, at: number) => () => view.dispatch({ changes: { from: at, insert: 'x' }, selection: { anchor: at + 1 } });
+
 	/**
-	 * Types text at the offset 3 times in a row and returns the lowest median time of one key in ms. A busy CI runner
-	 * can slow down one round; a key that reads the note is slow in each round.
+	 * Timing guard that holds on a slow shared CI runner (s1103 CIFIX review D4). The cost of one key in the 20,000-line
+	 * note is divided by the cost of one key in a 200-line note with the same footnote density, both measured in this
+	 * test. A key that reads the whole note costs about 100 times more in the big note. On the agent Mac (2026-11-03) the
+	 * ratio was about 1. The old limit was 3 ms for one key.
 	 */
-	function keyCost(view: EditorView, at: number, text: string): number {
-		let best = Infinity;
-		for (let round = 0; round < 3; round++) {
-			const times: number[] = [];
-			for (const ch of text) {
-				const start = performance.now();
-				view.dispatch({ changes: { from: at, insert: ch }, selection: { anchor: at + 1 } });
-				times.push(performance.now() - start);
-				at++;
-			}
-			best = Math.min(best, median(times));
-		}
-		return best;
-	}
+	const KEY_LIMIT = 5;
 
 	it('never reads a 20,000-line note without footnotes, also while typing', () => {
 		const { view, widgets } = setup(big(0), { cursor: 0 });
+		const base = setup(note(200, 0), { cursor: 0 }).view;
 		expect(widgets.scanCount).toBe(0);
-		const cost = keyCost(view, 10, 'typing words here');
+		const cost = pairedRatio(key(base, 10), key(view, 10));
 		expect(widgets.scanCount).toBe(0);
-		expect(cost).toBeLessThan(3);
+		expect(cost.ratio, cost.text).toBeLessThan(KEY_LIMIT);
 	});
 
 	it('moves the numbers of a 20,000-line note with 200 footnotes on each key, with no new read', () => {
 		const { view, widgets } = setup(big(200), { cursor: 0 });
+		const base = setup(note(200, 2), { cursor: 0 }).view;
 		expect(widgets.scanCount).toBe(1);
 		expect(numbers(view).slice(0, 1)).toEqual(['1']);
-		const cost = keyCost(view, 4, 'abc def');
+		const cost = pairedRatio(key(base, 4), key(view, 4));
 		expect(widgets.scanCount).toBe(1);
-		expect(cost).toBeLessThan(3);
+		expect(cost.ratio, cost.text).toBeLessThan(KEY_LIMIT);
 		expect(numbers(view).slice(0, 1)).toEqual(['1']);
 		expect(widgets.marksOf(view)[0]?.from).toBe(view.state.doc.toString().indexOf('^['));
 	});
