@@ -590,7 +590,9 @@ export function describeProblems(scan: FootnoteScan): string {
 	const bits: string[] = [];
 	if (scan.missing.length) bits.push(`${scan.missing.length} without a definition (${scan.missing.map((i) => `[^${i}]`).join(', ')})`);
 	if (scan.unused.length) bits.push(`${scan.unused.length} never used (${scan.unused.map((i) => `[^${i}]`).join(', ')})`);
-	return bits.length ? `Footnotes: ${bits.join('; ')}.` : `Footnotes: all ${scan.defs.length} have a reference and a definition.`;
+	if (bits.length) return `Footnotes: ${bits.join('; ')}.`;
+	const total = new Set(scan.defs.map((d) => d.id)).size;
+	return total ? `Footnotes: all ${total} have a reference and a definition.` : 'This note has no footnotes.';
 }
 
 /** The first reference of an id, or null. */
@@ -611,9 +613,12 @@ export function panelTarget(scan: FootnoteScan, id: string): { line: number; ch:
 	return ref ? { line: ref.line, ch: ref.ch } : null;
 }
 
-/** Id of the definition on a line, or null. For the Pro command that goes back to the reference. */
+/** Id of the definition on a line, also on a continuation line, or null. For the Pro command that goes back to the reference. */
 export function defIdOnLine(scan: FootnoteScan, line: number): string | null {
-	return scan.defs.find((d) => d.line === line && d.ch === undefined)?.id ?? null;
+	const labels = new Map(scan.defs.filter((d) => d.ch === undefined).map((d) => [d.line, d.id]));
+	let at = line;
+	while (at > 0 && scan.defLines.has(at) && !labels.has(at)) at--;
+	return labels.get(at) ?? null;
 }
 
 /** What a reference shows: its number, or the id when it has no definition. */

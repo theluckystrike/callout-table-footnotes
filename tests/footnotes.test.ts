@@ -145,6 +145,8 @@ describe('scanFootnotes helpers', () => {
 		expect(scan.unused).toEqual(['old']);
 		expect(describeProblems(scan)).toBe('Footnotes: 1 without a definition ([^gone]); 1 never used ([^old]).');
 		expect(describeProblems(scanFootnotes('A[^1]\n\n[^1]: x\n'))).toBe('Footnotes: all 1 have a reference and a definition.');
+		expect(describeProblems(scanFootnotes('Just text.\n'))).toBe('This note has no footnotes.');
+		expect(describeProblems(scanFootnotes('A[^a]\n\n[^a]: one\n[^a]: two\n'))).toBe('Footnotes: all 1 have a reference and a definition.');
 	});
 	it('looks up definitions and references', () => {
 		expect(definitionOf(scan, 'a')?.text).toBe('Def A.');
@@ -171,6 +173,13 @@ describe('scanFootnotes helpers', () => {
 		const s = scanFootnotes('A[^long].\n\n[^long]: first\n  second\n  third\n');
 		expect(definitionOf(s, 'long')).toMatchObject({ line: 2, text: 'first second third' });
 		expect(defIdOnLine(s, 2)).toBe('long');
+		expect(defIdOnLine(s, 3)).toBe('long');
+		expect(defIdOnLine(s, 4)).toBe('long');
+		const after = scanFootnotes('A[^a] and ^[inline]\n\n[^a]: one\n  two\n[^b]: three\n  four\nBody text.\n');
+		expect(defIdOnLine(after, 3)).toBe('a');
+		expect(defIdOnLine(after, 5)).toBe('b');
+		expect(defIdOnLine(after, 6)).toBeNull();
+		expect(defIdOnLine(after, 0)).toBeNull();
 		expect(panelTarget(s, 'long')).toEqual({ line: 2, ch: 9 });
 	});
 	it('puts the cursor at the start of the definition text, inside the line', () => {

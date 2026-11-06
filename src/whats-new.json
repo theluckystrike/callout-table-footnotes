@@ -1,9 +1,11 @@
 {
 	"id": "callout-table-footnotes",
 	"name": "Footnotes in Callouts and Tables",
-	"version": "1.3.4",
+	"version": "1.3.5",
 	"changes": [
-		"The Pro notice of this plugin now says that one payment turns on Pro in every NoteMods plugin."
+		"The command that goes from a definition back to its reference now works on every line of a long definition.",
+		"The footnote check now says \"This note has no footnotes.\" on a note without footnotes.",
+		"The footnote check now counts a label that is defined twice as one footnote."
 	],
 	"tip": "Turn off 'Show numbers' to show named labels instead of numbers for named footnotes.",
 	"thanks": "Hi, I am Michael, a solo developer in Poland. Footnotes in Callouts and Tables is one of over 100 small plugins that I make. Thank you for trusting it with your tables.",

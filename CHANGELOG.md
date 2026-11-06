@@ -1,5 +1,13 @@
 # callout-table-footnotes
 
+## 1.3.5
+
+### Patch Changes
+
+- 5f30369: The command that goes from a definition back to its reference now works on every line of a long definition.
+  The footnote check now says "This note has no footnotes." on a note without footnotes.
+  The footnote check now counts a label that is defined twice as one footnote.
+
 ## 1.3.4
 
 ### Patch Changes
