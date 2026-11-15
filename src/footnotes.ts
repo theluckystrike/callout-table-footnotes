@@ -47,7 +47,8 @@ export interface Located {
 }
 
 const ID = '[^\\]\\s^]+';
-const CODE_SPAN = /(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
+// The content ends with a character that is not a backtick (was a lookbehind, which iOS before 16.4 lacks).
+export const CODE_SPAN = /(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g;
 const DEF_LINE = new RegExp(`^ {0,3}\\[\\^(${ID})\\]:[ \\t]?(.*)$`);
 const DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
 const ALNUM = /[\p{L}\p{N}]/u;
